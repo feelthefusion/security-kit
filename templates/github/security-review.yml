@@ -1,0 +1,43 @@
+# AI security review on every pull request (Anthropic's claude-code-security-review, MIT).
+#
+# Runs ONLY when the CLAUDE_API_KEY repository secret is set — without it the job is
+# skipped (greyed), never red. To activate: GitHub → repo Settings → Secrets and
+# variables → Actions → New repository secret → CLAUDE_API_KEY (a key enabled for BOTH
+# the Claude API and Claude Code usage).
+#
+# This is the CI sibling of the skill-kit's in-session `/security-review` (Claude Code):
+# the action catches issues on every PR even when no agent session is open. Findings are
+# posted as PR line comments with severity + remediation; the red-team/harden-stack loop
+# (Security Kit) is where you act on them.
+#
+# To tune: add `claude-model`, `exclude-directories`, or `custom-security-scan-instructions`
+# as inputs (see anthropics/claude-code-security-review README). Edit freely — sec-init
+# seeds this once and never overwrites it.
+#
+# NOTE (technical, not a policy): the action is not hardened against prompt injection, so
+# it should only review trusted PRs. On public repos enable "Require approval for all
+# external contributors" (Settings → Actions → General → Fork pull request workflows →
+# Require approval) so a fork's PR can't run the review until a maintainer approves it.
+name: Security Review (Claude)
+
+permissions:
+  pull-requests: write   # needed to post review comments
+  contents: read
+
+on:
+  pull_request:
+
+jobs:
+  security:
+    if: ${{ secrets.CLAUDE_API_KEY != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+
+      - uses: anthropics/claude-code-security-review@main
+        with:
+          comment-pr: true
+          claude-api-key: ${{ secrets.CLAUDE_API_KEY }}

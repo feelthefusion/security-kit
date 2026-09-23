@@ -217,12 +217,21 @@ else
     echo "  · no verify.sh (Skill Starter Kit gate) — regression tests run separately"
 fi
 
-# --- GitHub webhook receiver ----------------------------------------------------------
+# --- GitHub webhook receiver + AI PR review -------------------------------------------------
 if git remote get-url origin 2>/dev/null | grep -q "github.com"; then
     KIT_SLUG="$(git -C "$KIT_ROOT" remote get-url origin 2>/dev/null | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')"
     mkdir -p .github/workflows
     sed "s#__KIT_REPO__#${KIT_SLUG:-feelthefusion/security-kit}#" "$KIT_ROOT/templates/github/security-kit-sync.yml" > .github/workflows/security-kit-sync.yml
     echo "  · .github/workflows/security-kit-sync.yml (webhook receiver) ✓"
+    # AI PR review (Anthropic claude-code-security-review) — seeded once, editable. Skipped
+    # (never red) until the CLAUDE_API_KEY repo secret is set.
+    if [ ! -f .github/workflows/security-review.yml ]; then
+        cp "$KIT_ROOT/templates/github/security-review.yml" .github/workflows/security-review.yml
+        echo "  · .github/workflows/security-review.yml (AI PR review) ✓"
+        echo "    activate: add a CLAUDE_API_KEY repo secret (Claude API + Claude Code enabled); without it the job is skipped"
+    else
+        echo "  · .github/workflows/security-review.yml exists (kept — editable) ✓"
+    fi
 fi
 
 # --- living-repo stamp ---------------------------------------------------------------

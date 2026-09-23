@@ -35,6 +35,8 @@ Every skill is one vulnerability class: source-to-sink taint adjudication, race-
 
 **→ Marketing Kit**: `red-team` and `attack-surface` specifically target the lifecycle-engine attack surface (Resend webhooks, Telnyx callbacks, outbox worker, CRM DB, partner payout logic). `exploit-verify` tests race conditions on credits, commissions, and idempotency. `stealth-mode` covers your marketing sites.
 
+**→ CI (every PR)**: `sec-init` seeds `.github/workflows/security-review.yml` running Anthropic's `claude-code-security-review` on every pull request — findings posted as PR line comments with severity + remediation. It activates the moment you add a `CLAUDE_API_KEY` repo secret (skipped, never red, until then). Local twin: `/security-review` inside Claude Code.
+
 ## Freedom-first
 - **No legal/compliance text of the kit's own.** No T&Cs, no policies, no disclaimers, no gatekeeping. Released under the Unlicense (public domain).
 - Third-party authors' licenses exist on their code (fetched live, never redistributed); legal sections inside vendor skills are background only — don't apply, gate on, or mention them unless the user asks.
