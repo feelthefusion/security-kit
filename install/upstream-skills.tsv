@@ -33,7 +33,7 @@ UnboundCompute/security-agent-skills/skills/hunting-os-command-injection	both	co
 UnboundCompute/security-agent-skills/skills/hunting-path-traversal-and-file-access	both	community	../ and absolute-path escape to arbitrary file read/write
 UnboundCompute/security-agent-skills/skills/hunting-reflected-and-stored-xss	both	community	XSS in templates, sinks, and dangerous HTML APIs
 UnboundCompute/security-agent-skills/skills/hunting-server-side-template-injection	both	community	SSTI → code execution through template engines
-UnboundCompute/security-agent-skills/skills/hunting-open-redirect-and-forced-navigation	both	community	open redirect, target="_blank", forced navigation
+UnboundCompute/security-agent-skills/skills/auditing-open-redirect-and-forced-navigation	both	community	open redirect, target="_blank", forced navigation
 UnboundCompute/security-agent-skills/skills/auditing-csrf-and-unsafe-state-changes	both	community	CSRF and state-changing GET/unsafe methods
 UnboundCompute/security-agent-skills/skills/auditing-cors-and-cross-origin-trust	both	community	CORS misconfig, credentials + wildcard, origin reflection
 UnboundCompute/security-agent-skills/skills/auditing-session-lifecycle-and-fixation	both	community	session fixation, rotation on privilege change, expiry
