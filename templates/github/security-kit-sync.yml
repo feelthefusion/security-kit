@@ -10,7 +10,9 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false   # create-pull-request pushes with its own token
       - name: Update Security Kit managed files
         run: |
           if command -v sec-init >/dev/null 2>&1; then
@@ -20,7 +22,7 @@ jobs:
             sec-init
           fi
       - name: Open PR if changes
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           title: 'security-kit: auto-sync from kit update'
           branch: 'security-kit/auto-sync'

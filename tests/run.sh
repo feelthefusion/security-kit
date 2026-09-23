@@ -46,18 +46,27 @@ done
 grep -q "one owner per job" skills/security-kit/SKILL.md && ok "ownership map present in security-kit" || bad "security-kit missing ownership map"
 
 echo "── templates & CLIs ──"
-for f in templates/robots.txt templates/crawler-blocklist.txt templates/stealth-headers.md templates/github/security-kit-sync.yml templates/github/security-review.yml bin/sec-doctor bin/sec-update bin/sec-settings install/init-project.sh; do
+for f in templates/robots.txt templates/crawler-blocklist.txt templates/stealth-headers.md templates/github/security-kit-sync.yml templates/github/security-review.yml bin/sec-doctor bin/sec-review bin/sec-update bin/sec-settings install/init-project.sh; do
     [ -f "$f" ] && ok "$f" || bad "$f missing"
 done
 grep -q "Disallow: /" templates/robots.txt && ok "robots.txt blocks all" || bad "robots.txt missing Disallow"
 grep -q "GPTBot" templates/crawler-blocklist.txt && ok "crawler blocklist has AI crawlers" || bad "crawler blocklist missing GPTBot"
-# CI review workflow: secret-gated (skip, never red) + official action pinned to @main
-grep -q "claude-code-security-review@main" templates/github/security-review.yml && ok "security-review.yml uses official action" || bad "security-review.yml missing action"
-grep -q "secrets.CLAUDE_API_KEY != ''" templates/github/security-review.yml && ok "security-review.yml is secret-gated" || bad "security-review.yml not secret-gated"
+# PR review workflow: Claude plan (OAuth token, no API key), secret-gated via a gate job
+# (`secrets` isn't allowed in a job-level if), actions pinned to a commit (zizmor)
+grep -q "anthropics/claude-code-action@[0-9a-f]\{40\}" templates/github/security-review.yml && ok "security-review.yml: official claude-code-action, hash-pinned" || bad "security-review.yml action not hash-pinned"
+grep -q "claude_code_oauth_token: \${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}" templates/github/security-review.yml && ok "security-review.yml runs on the Claude plan (OAuth token)" || bad "security-review.yml not on the OAuth token"
+grep -q "needs.gate.outputs.enabled == 'true'" templates/github/security-review.yml && ok "security-review.yml secret-gated via gate job" || bad "security-review.yml not gated"
+! grep -qE "CLAUDE_API_KEY|anthropic_api_key|if: \\$\\{\\{ *secrets\." templates/github/*.yml && ok "no API key and no secrets-in-if anywhere in the templates" || bad "API key or secrets-in-if left in templates"
+! grep -qE "uses: [^@]+@v[0-9]" templates/github/*.yml && ok "every template action is hash-pinned" || bad "unpinned action in templates"
 # one-command install: bootstrap must default to both hosts, no flag required
 grep -q 'TARGET="${1:-both}"' install/bootstrap.sh && ok "bootstrap defaults to both hosts" || bad "bootstrap not defaulting to both"
-# sec-init must auto-set the CI review key from the environment when present
-grep -q "gh secret set CLAUDE_API_KEY" install/init-project.sh && ok "sec-init auto-sets CLAUDE_API_KEY from env" || bad "sec-init missing auto-secret-set"
+grep -q "gh secret set CLAUDE_CODE_OAUTH_TOKEN" install/init-project.sh && ok "sec-init auto-sets CLAUDE_CODE_OAUTH_TOKEN from env" || bad "sec-init missing auto-secret-set"
+grep -q 'sec-review" --install-hook' install/init-project.sh && ok "sec-init installs the pre-push review hook" || bad "sec-init missing the pre-push hook"
+
+echo "── sec-review (automatic push review, stub claude) ──"
+while IFS= read -r line; do
+    case "$line" in *"  ✓ "*) ok "${line#*✓ }" ;; *"  ✗ "*) bad "${line#*✗ }" ;; esac
+done < <(ROOT="$KIT_ROOT" bash "$KIT_ROOT/tests/sec-review.sh" 2>&1)
 
 echo "── stealth toggle (dry) ──"
 tmp="$(mktemp -d)"

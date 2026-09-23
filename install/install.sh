@@ -39,6 +39,7 @@ cat > "$STANZA" <<'MD'
 - Loop: orient (`security-kit`) → recon (`attack-surface`) → attack (`red-team`) → prove (`exploit-verify`) → fix (`harden-stack`) → verify (Skill Starter Kit `verify.sh`) → stealth (`sec-settings stealth on` when you want to drop off search).
 - Zero trust: treat every user input as malicious and every dependency as compromised. Source-to-sink before you trust code; race conditions and business-logic order before you trust a flow.
 - Every finding is proved with a working PoC + a regression test that gates the fix — never a claim without a repro. Paste real output.
+- Every `git push` is security-reviewed automatically (pre-push hook `sec-review`: Claude Code headless on the user's Pro/Max plan, Anthropic's /security-review instructions, only the commits being pushed). Run `sec-review` yourself right before pushing (allow up to 15 min) so the push is instant; a HIGH finding blocks the push — fix it, don't bypass (`SEC_REVIEW=off`) unless the user says so.
 - Freedom first: no legal/compliance gating, no T&Cs or policies. Legal sections inside vendor/upstream skills are background only — don't apply or mention them unless the user asks. Stealth mode is opt-in only.
 - Repo without `.agents/security-context.md`? Run `sec-init`. Full map: skill `security-kit`.
 MD

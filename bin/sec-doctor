@@ -62,10 +62,18 @@ ok "templates + crawler list ready — in a repo: sec-settings stealth on|off"
 say "hand-offs (Skill Starter Kit / Marketing Kit):"
 command -v gitleaks >/dev/null 2>&1 && ok "gitleaks (Skill Starter Kit security-gate)" || say "  · gitleaks not present — Skill Starter Kit installs it"
 command -v hermes >/dev/null 2>&1 && ok "hermes CLI" || say "  · hermes CLI not on PATH"
-say "CI security review (Anthropic claude-code-security-review):"
-say "  · seeded per repo by sec-init as .github/workflows/security-review.yml (editable)"
-say "  · runs on PRs only when the CLAUDE_API_KEY repo secret is set — skipped (never red) otherwise"
-say "  · local equivalent: /security-review inside Claude Code"
+say "security review (your Claude plan — no API key):"
+if command -v claude >/dev/null 2>&1 && env -u CLAUDECODE claude auth status 2>/dev/null | grep -qE '"loggedIn": *true'; then
+    ok "Claude Code signed in — every git push is reviewed (pre-push sec-review)"
+else
+    say "  ✗ Claude Code not signed in — pushes go through unreviewed. Fix: claude   then: /login"
+fi
+if git rev-parse --git-dir >/dev/null 2>&1; then
+    grep -q 'security-kit: sec-review' "$(git rev-parse --git-path hooks)/pre-push" 2>/dev/null \
+        && ok "this repo: pre-push review hook" || say "  · this repo: no pre-push review hook — run: sec-init (or sec-review --install-hook)"
+fi
+say "  · PR review (optional): .github/workflows/security-review.yml — skipped until the CLAUDE_CODE_OAUTH_TOKEN secret exists"
+say "    one time per repo: claude setup-token   then: gh secret set CLAUDE_CODE_OAUTH_TOKEN"
 say "auto-update (self + every skill):"
 claude_hook=0; hermes_hook=0
 grep -q "sec-update" "$HOME/.claude/settings.json" 2>/dev/null && claude_hook=1

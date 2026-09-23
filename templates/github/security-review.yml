@@ -1,43 +1,65 @@
-# AI security review on every pull request (Anthropic's claude-code-security-review, MIT).
+# AI security review on every pull request — on your Claude Pro/Max plan, no API key.
+# Anthropic's claude-code-action (MIT) signed in with a Claude Code OAuth token.
 #
-# Runs ONLY when the CLAUDE_API_KEY repository secret is set — without it the job is
-# skipped (greyed), never red. To activate: GitHub → repo Settings → Secrets and
-# variables → Actions → New repository secret → CLAUDE_API_KEY (a key enabled for BOTH
-# the Claude API and Claude Code usage).
+# Runs ONLY when the CLAUDE_CODE_OAUTH_TOKEN repository secret exists: without it the
+# review job is skipped (grey), never red. Activate once per repo:
+#     claude setup-token                                     # prints a long-lived token (needs a Claude subscription)
+#     gh secret set CLAUDE_CODE_OAUTH_TOKEN -R <owner/repo>  # paste it when prompted
 #
-# This is the CI sibling of the skill-kit's in-session `/security-review` (Claude Code):
-# the action catches issues on every PR even when no agent session is open. Findings are
-# posted as PR line comments with severity + remediation; the red-team/harden-stack loop
-# (Security Kit) is where you act on them.
-#
-# To tune: add `claude-model`, `exclude-directories`, or `custom-security-scan-instructions`
-# as inputs (see anthropics/claude-code-security-review README). Edit freely — sec-init
-# seeds this once and never overwrites it.
-#
-# NOTE (technical, not a policy): the action is not hardened against prompt injection, so
-# it should only review trusted PRs. On public repos enable "Require approval for all
-# external contributors" (Settings → Actions → General → Fork pull request workflows →
-# Require approval) so a fork's PR can't run the review until a maintainer approves it.
+# Pushes straight to a branch are reviewed locally instead: sec-init installs a pre-push
+# hook (`sec-review`) that runs the same review on your machine before anything leaves it.
+# Fork PRs never receive secrets, so they are skipped automatically (the review reads PR
+# text, so only trusted PRs should ever get the token). Edit freely — sec-init seeds this
+# once and never overwrites your edits.
 name: Security Review (Claude)
-
-permissions:
-  pull-requests: write   # needed to post review comments
-  contents: read
 
 on:
   pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+permissions: {}
 
 jobs:
-  security:
-    if: ${{ secrets.CLAUDE_API_KEY != '' }}
+  gate:  # `secrets` can't be read in a job-level `if:`, so a tiny job turns the secret into an output
     runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 2
+      - id: check
+        env:
+          TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: if [ -n "$TOKEN" ]; then echo "enabled=true"; else echo "enabled=false"; fi >> "$GITHUB_OUTPUT"
 
-      - uses: anthropics/claude-code-security-review@main
+  security:
+    needs: gate
+    if: needs.gate.outputs.enabled == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write   # post the findings as review comments
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          comment-pr: true
-          claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: anthropics/claude-code-action@cfc3eb22bfed5c26ef66e3223c982af27e4524de # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            You are a senior security engineer. Review ONLY the security implications this PR
+            newly adds (read the diff with `gh pr diff`), following Anthropic's /security-review
+            criteria: report only HIGH-CONFIDENCE (>80%) vulnerabilities with a real attack path —
+            injection (SQL, command, template, path), authentication or authorization bypass,
+            secrets in code, unsafe deserialization, SSRF, XSS, broken crypto, sensitive data
+            exposure. Skip style, theory, DoS and rate limiting, and pre-existing issues.
+
+            For each finding, leave an inline comment on the exact line with: severity (HIGH or
+            MEDIUM), what an attacker does, and the fix. Then post ONE summary comment with
+            `gh pr comment`: the findings list, or "No high-confidence security issues found."
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Grep,Glob"

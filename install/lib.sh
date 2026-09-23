@@ -88,11 +88,11 @@ link_upstream_skills() {  # $1 = kit root  $2 = skills dir  $3 = host (claude|he
 link_bins() {  # $1 = kit root
     mkdir -p "$SEC_BIN"
     local b
-    for b in sec-doctor sec-update sec-settings; do
+    for b in sec-doctor sec-update sec-settings sec-review; do
         chmod +x "$1/bin/$b"; ln -sfn "$1/bin/$b" "$SEC_BIN/$b"
     done
     chmod +x "$1/install/init-project.sh"; ln -sfn "$1/install/init-project.sh" "$SEC_BIN/sec-init"
-    ok "sec-doctor sec-update sec-settings sec-init → $SEC_BIN"
+    ok "sec-doctor sec-update sec-settings sec-review sec-init → $SEC_BIN"
     case ":$PATH:" in *":$SEC_BIN:"*) ;; *) warn "$SEC_BIN is not on PATH — add: export PATH=\"\$HOME/.local/bin:\$PATH\"" ;; esac
 }
 
