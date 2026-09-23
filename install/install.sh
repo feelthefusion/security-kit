@@ -54,4 +54,8 @@ esac
 write_kit_version "$KIT_ROOT" "$CLAUDE_DIR"
 
 say "─── done ───────────────────────────────────────────────"
-say "Restart Claude Code. Then:  sec-doctor   ·   in each app repo:  sec-init"
+say "✓ Everything is enabled — no manual steps."
+say "  · 8 kit skills + 48 technique skills, linked live (never copied)"
+say "  · auto-updates itself + every skill on each session start (no timers, nothing to run)"
+say "  · restart the app once for skills to load, then:  sec-doctor"
+say "  · in each app repo (the only per-repo step):  sec-init"

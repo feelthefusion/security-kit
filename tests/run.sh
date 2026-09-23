@@ -54,6 +54,10 @@ grep -q "GPTBot" templates/crawler-blocklist.txt && ok "crawler blocklist has AI
 # CI review workflow: secret-gated (skip, never red) + official action pinned to @main
 grep -q "claude-code-security-review@main" templates/github/security-review.yml && ok "security-review.yml uses official action" || bad "security-review.yml missing action"
 grep -q "secrets.CLAUDE_API_KEY != ''" templates/github/security-review.yml && ok "security-review.yml is secret-gated" || bad "security-review.yml not secret-gated"
+# one-command install: bootstrap must default to both hosts, no flag required
+grep -q 'TARGET="${1:-both}"' install/bootstrap.sh && ok "bootstrap defaults to both hosts" || bad "bootstrap not defaulting to both"
+# sec-init must auto-set the CI review key from the environment when present
+grep -q "gh secret set CLAUDE_API_KEY" install/init-project.sh && ok "sec-init auto-sets CLAUDE_API_KEY from env" || bad "sec-init missing auto-secret-set"
 
 echo "── stealth toggle (dry) ──"
 tmp="$(mktemp -d)"

@@ -224,13 +224,27 @@ if git remote get-url origin 2>/dev/null | grep -q "github.com"; then
     sed "s#__KIT_REPO__#${KIT_SLUG:-feelthefusion/security-kit}#" "$KIT_ROOT/templates/github/security-kit-sync.yml" > .github/workflows/security-kit-sync.yml
     echo "  · .github/workflows/security-kit-sync.yml (webhook receiver) ✓"
     # AI PR review (Anthropic claude-code-security-review) — seeded once, editable. Skipped
-    # (never red) until the CLAUDE_API_KEY repo secret is set.
+    # (never red) until the CLAUDE_API_KEY repo secret is set. Auto-set the secret now if a
+    # key is in the environment (zero manual step); otherwise print the one command.
     if [ ! -f .github/workflows/security-review.yml ]; then
         cp "$KIT_ROOT/templates/github/security-review.yml" .github/workflows/security-review.yml
         echo "  · .github/workflows/security-review.yml (AI PR review) ✓"
-        echo "    activate: add a CLAUDE_API_KEY repo secret (Claude API + Claude Code enabled); without it the job is skipped"
     else
         echo "  · .github/workflows/security-review.yml exists (kept — editable) ✓"
+    fi
+    if [ -n "${CLAUDE_API_KEY:-}${ANTHROPIC_API_KEY:-}" ]; then
+        KEY="${CLAUDE_API_KEY:-${ANTHROPIC_API_KEY:-}}"
+        if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+            if printf '%s' "$KEY" | gh secret set CLAUDE_API_KEY >/dev/null 2>&1; then
+                echo "  · CLAUDE_API_KEY secret auto-set from env — CI review is LIVE ✓"
+            else
+                echo "  ⚠ gh secret set failed — run: gh secret set CLAUDE_API_KEY"
+            fi
+        else
+            echo "  ⚠ CLAUDE_API_KEY in env but gh not authed — run: gh auth login, then: gh secret set CLAUDE_API_KEY"
+        fi
+    else
+        echo "    activate CI review (one time): gh secret set CLAUDE_API_KEY   (Claude API + Claude Code enabled)"
     fi
 fi
 
