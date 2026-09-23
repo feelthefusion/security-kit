@@ -1,0 +1,34 @@
+# AI / LLM crawlers and bots to block (User-Agent list).
+# One per line; the agent expands these into robots.txt + server UA-deny rules when stealth is on.
+# Renowned search crawlers honor robots.txt; many scrapers do not — block the aggressive ones at
+# the edge/proxy too (see stealth-headers.md).
+
+GPTBot
+ChatGPT-User
+OAI-SearchBot
+ClaudeBot
+Claude-Web
+anthropic-ai
+CCBot
+PerplexityBot
+Google-Extended
+GoogleOther
+Bytespider
+Amazonbot
+Applebot-Extended
+cohere-ai
+Diffbot
+ImagesiftBot
+YouBot
+facebookexternalhit
+meta-externalagent
+meta-externalfetcher
+Timpibot
+Scrapy
+MJ12bot
+SemrushBot
+AhrefsBot
+DotBot
+BLEXBot
+PetalBot
+archive.org_bot

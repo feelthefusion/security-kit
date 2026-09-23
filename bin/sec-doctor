@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Security Kit — wiring check.   sec-doctor   (what's wired, what's missing, exact fixes)
+# =============================================================================
+set -uo pipefail
+SELF="${BASH_SOURCE[0]}"; while [ -L "$SELF" ]; do SELF="$(readlink "$SELF")"; done
+KIT_ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
+SEC_BIN="$HOME/.local/bin"
+SEC_UPSTREAM="${SEC_UPSTREAM:-${XDG_DATA_HOME:-$HOME/.local/share}/security-kit/upstream}"
+SEC_CONF="$HOME/.config/security-kit"
+say() { printf '%s\n' "$*"; }
+bad() { printf '  ✗ %s\n' "$*"; }
+ok()  { printf '  · %s ✓\n' "$*"; }
+
+say "── Security Kit · doctor ───────────────────────────────"
+say "kit checkout: $KIT_ROOT ($(git -C "$KIT_ROOT" rev-parse --short HEAD 2>/dev/null || echo 'not git'))"
+
+say "CLIs on PATH:"
+for b in sec-init sec-doctor sec-update sec-settings; do
+    [ -L "$SEC_BIN/$b" ] || [ -x "$SEC_BIN/$b" ] && ok "$b → $SEC_BIN" || bad "$b missing — run the kit installer"
+done
+
+say "Claude Code:"
+if [ -d "$HOME/.claude/skills" ]; then
+    n=$(ls -1 "$HOME/.claude/skills" 2>/dev/null | grep -cE '^(security-kit|red-team|attack-surface|exploit-verify|harden-stack|fuzz-harness|prod-debug|stealth-mode)$')
+    ok "$n/8 kit skills linked"; [ "$n" -lt 8 ] && bad "run: bash $KIT_ROOT/install/install.sh"
+    grep -q 'security-kit:start' "$HOME/.claude/CLAUDE.md" 2>/dev/null && ok "always-on stanza in CLAUDE.md" || bad "stanza missing — re-run installer"
+else
+    bad "no ~/.claude/skills (Claude Code not set up)"
+fi
+
+say "Hermes:"
+if [ -d "$HOME/.hermes/skills/security" ]; then
+    n=$(ls -1 "$HOME/.hermes/skills/security" 2>/dev/null | grep -cE '^(security-kit|red-team|attack-surface|exploit-verify|harden-stack|fuzz-harness|prod-debug|stealth-mode)$')
+    ok "$n/8 kit skills linked"; [ "$n" -lt 8 ] && bad "run: bash $KIT_ROOT/install/hermes.sh"
+else
+    bad "no ~/.hermes/skills/security (Hermes not set up)"
+fi
+
+say "curated upstream skills (UnboundCompute/security-agent-skills):"
+if [ -d "$SEC_UPSTREAM" ]; then
+    repos=$(ls -1 "$SEC_UPSTREAM" 2>/dev/null | wc -l | tr -d ' ')
+    ok "$repos upstream repo checkout(s) present"
+    have=0; want=0
+    while IFS=$'\t' read -r ident hosts _; do
+        case "$ident" in ''|\#*) continue ;; esac
+        want=$((want+1))
+        d="$SEC_UPSTREAM/$(printf '%s' "$(printf '%s' "$ident" | cut -d/ -f1-2)" | tr '/' '_')/$(printf '%s' "$ident" | cut -d/ -f3-)"
+        [ -f "$d/SKILL.md" ] && have=$((have+1))
+    done < <(grep -v '^#' "$KIT_ROOT/install/upstream-skills.tsv")
+    ok "$have/$want upstream skills available in checkout"
+    [ "$have" -lt "$want" ] && bad "re-run installer to clone/fetch upstream"
+else
+    bad "no upstream checkout — run the kit installer"
+fi
+
+say "stealth mode:"
+[ -d "$SEC_CONF/stealth" ] || mkdir -p "$SEC_CONF/stealth"
+cp -f "$KIT_ROOT/templates/crawler-blocklist.txt" "$SEC_CONF/stealth/" 2>/dev/null || true
+ok "templates + crawler list ready — in a repo: sec-settings stealth on|off"
+
+say "hand-offs (Skill Starter Kit / Marketing Kit):"
+command -v gitleaks >/dev/null 2>&1 && ok "gitleaks (Skill Starter Kit security-gate)" || say "  · gitleaks not present — Skill Starter Kit installs it"
+command -v hermes >/dev/null 2>&1 && ok "hermes CLI" || say "  · hermes CLI not on PATH"
+say "── done ───────────────────────────────────────────────"

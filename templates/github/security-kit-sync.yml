@@ -1,0 +1,34 @@
+name: Security Kit Sync
+on:
+  repository_dispatch:
+    types: [security-kit-push]
+
+jobs:
+  sync-kit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update Security Kit managed files
+        run: |
+          if command -v sec-init >/dev/null 2>&1; then
+            sec-init
+          else
+            curl -fsSL https://raw.githubusercontent.com/__KIT_REPO__/main/install/bootstrap.sh | bash -s -- both
+            sec-init
+          fi
+      - name: Open PR if changes
+        uses: peter-evans/create-pull-request@v7
+        with:
+          title: 'security-kit: auto-sync from kit update'
+          branch: 'security-kit/auto-sync'
+          body: |
+            Auto-synced by a push to [__KIT_REPO__](https://github.com/__KIT_REPO__).
+
+            - sec-init re-ran (kit-managed blocks, upstream skill links, verify step)
+            - Review the diff; merge to apply.
+
+            Trigger: repository_dispatch from the kit's webhook.
+          delete-branch: true
