@@ -46,11 +46,14 @@ done
 grep -q "one owner per job" skills/security-kit/SKILL.md && ok "ownership map present in security-kit" || bad "security-kit missing ownership map"
 
 echo "── templates & CLIs ──"
-for f in templates/robots.txt templates/crawler-blocklist.txt templates/stealth-headers.md templates/github/security-kit-sync.yml bin/sec-doctor bin/sec-update bin/sec-settings install/init-project.sh; do
+for f in templates/robots.txt templates/crawler-blocklist.txt templates/stealth-headers.md templates/github/security-kit-sync.yml templates/github/security-review.yml bin/sec-doctor bin/sec-update bin/sec-settings install/init-project.sh; do
     [ -f "$f" ] && ok "$f" || bad "$f missing"
 done
 grep -q "Disallow: /" templates/robots.txt && ok "robots.txt blocks all" || bad "robots.txt missing Disallow"
 grep -q "GPTBot" templates/crawler-blocklist.txt && ok "crawler blocklist has AI crawlers" || bad "crawler blocklist missing GPTBot"
+# CI review workflow: secret-gated (skip, never red) + official action pinned to @main
+grep -q "claude-code-security-review@main" templates/github/security-review.yml && ok "security-review.yml uses official action" || bad "security-review.yml missing action"
+grep -q "secrets.CLAUDE_API_KEY != ''" templates/github/security-review.yml && ok "security-review.yml is secret-gated" || bad "security-review.yml not secret-gated"
 
 echo "── stealth toggle (dry) ──"
 tmp="$(mktemp -d)"
