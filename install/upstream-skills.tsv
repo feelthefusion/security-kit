@@ -47,3 +47,16 @@ UnboundCompute/security-agent-skills/skills/auditing-security-logging-completene
 UnboundCompute/security-agent-skills/skills/auditing-webhook-authenticity-and-callback-trust	both	community	Resend/Telnyx-style webhook signature verification + replay
 UnboundCompute/security-agent-skills/skills/auditing-payment-state-machine-and-idempotency	both	community	payment state machine, idempotency, double-spend, refund abuse
 UnboundCompute/security-agent-skills/skills/hunting-mobile-secret-and-storage-exposure	both	community	secrets, storage, and debug interfaces in mobile clients
+UnboundCompute/security-agent-skills/skills/exploiting-ssrf-to-cloud-metadata	both	community	SSRF → cloud IMDS/metadata theft (169.254.169.254, k8s, ECS task IAM)
+UnboundCompute/security-agent-skills/skills/hunting-dns-rebinding-and-ssrf-pivots	both	community	SSRF pivots: DNS rebinding, internal service reachability
+UnboundCompute/security-agent-skills/skills/hunting-xxe-and-xml-parser-trust	both	community	XXE and XML parser external-entity trust
+UnboundCompute/security-agent-skills/skills/hunting-xpath-and-xml-query-injection	both	community	XPath/XML query injection through XML inputs
+UnboundCompute/security-agent-skills/skills/hunting-mass-assignment-and-property-authz	both	community	mass assignment / property authz on Node-Express-style bodies
+UnboundCompute/security-agent-skills/skills/hunting-python-unsafe-deserialization	both	community	pickle/yaml.unsafe_load and Python deserialization RCE
+UnboundCompute/security-agent-skills/skills/hunting-http-request-smuggling-and-desync	both	community	request smuggling / desync between frontends and backends
+UnboundCompute/security-agent-skills/skills/testing-request-smuggling	both	community	practical smuggling/desync testing (CL.0, TE vs CL)
+UnboundCompute/security-agent-skills/skills/hunting-host-header-and-url-parsing-trust	both	community	host header injection, URL-parsing trust, cache poisoning
+UnboundCompute/security-agent-skills/skills/auditing-graphql-attack-surface	both	community	GraphQL introspection, depth/alias/batching abuse
+UnboundCompute/security-agent-skills/skills/testing-agents-for-indirect-prompt-injection	both	community	indirect prompt injection against LLM/agent endpoints
+UnboundCompute/security-agent-skills/skills/auditing-ai-agent-permissions	both	community	LLM/agent permission scope: excessive agency, tool misuse
+UnboundCompute/security-agent-skills/skills/hunting-formula-injection-in-exports	both	community	CSV/export formula injection (=cmd| leading cells)

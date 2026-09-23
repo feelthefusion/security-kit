@@ -25,9 +25,9 @@ sec-settings stealth on|off   # noindex, crawler block, per-stack headers — di
 | 6 | **prod-debug** | Production incident debugging: logs, traces, crash dumps, memory leaks, reproduce prod-only bugs | → systematic-debugging (Superpowers) |
 | 7 | **stealth-mode** | Noindex, crawler block, per-stack HTTP headers — make your sites invisible to search engines and LLM crawlers. `sec-settings stealth on|off`. | (standalone; toggle per site) |
 
-### Upstream technique skills (fetched live, ~30 white-box deep-dive skills from UnboundCompute/security-agent-skills)
+### Upstream technique skills (fetched live, 48 white-box deep-dive skills from UnboundCompute/security-agent-skills)
 
-Every skill is one vulnerability class: source-to-sink taint adjudication, race-condition detection, business-logic flaw hunting, memory-safety audit, crypto misuse, fail-open gaps, dependency CVE reachability, supply-chain risk, IDOR/BOLA, SQL injection, XSS, CSRF, CORS, JWT/session, webhook authenticity, payment state-machine, command injection, path traversal, SSTI, open redirect, clickjacking, rate limiting, logging completeness, mobile secret exposure, AI-generated code review, bug-variant hunting, and attack-surface mapping.
+Every skill is one vulnerability class: source-to-sink taint adjudication, race-condition detection, business-logic flaw hunting, memory-safety audit, crypto misuse, fail-open gaps, dependency CVE reachability, supply-chain risk, IDOR/BOLA, SQL injection, XSS, CSRF, CORS, JWT/session, webhook authenticity, payment state-machine, command injection, path traversal, SSTI, open redirect, clickjacking, rate limiting, logging completeness, mobile secret exposure, AI-generated code review, bug-variant hunting, attack-surface mapping — plus SSRF (cloud-metadata + DNS rebinding), XXE/XPath/XML injection, mass assignment, Python deserialization, HTTP request smuggling/desync, host-header injection, GraphQL attack surface, indirect prompt injection / LLM agent permissions, and CSV/export formula injection.
 
 ## How it fits with your other kits
 
