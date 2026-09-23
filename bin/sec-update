@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Security Kit — living updates.  Event-driven: runs when YOU start a session, never on a timer.
+#
+#   sec-update              check every component's upstream now, apply what changed
+#   sec-update --check      report what changed upstream, apply nothing
+#   sec-update --status     components, last-seen revision, last check
+#   sec-update --hook       (Claude Code SessionStart / Hermes on_session_start) — background
+#
+# Detection: one `git ls-remote` per upstream repo (the kit + the technique-skill repo), in
+# parallel (~1s). Only components whose revision moved get updated. GitHub only sends webhooks
+# to a repo's admins, so for vendor upstreams the session start IS the event.
+#
+#   SEC_UPDATE_TTL=300   seconds a check result is reused (many sessions at once = 1 check)
+#   SEC_UPDATE=off       disable (the hook becomes a no-op)
+# =============================================================================
+set -uo pipefail
+SELF="${BASH_SOURCE[0]}"; while [ -L "$SELF" ]; do SELF="$(readlink "$SELF")"; done
+KIT_ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
+CONF="${XDG_CONFIG_HOME:-$HOME/.config}/security-kit"
+STATE="$CONF/update-state.json"; LOG="$CONF/update.log"; NOTICE="$CONF/update-notice.txt"; LOCK="$CONF/update.lock"
+TTL="${SEC_UPDATE_TTL:-300}"
+GIT_BASE="${SEC_GIT_BASE:-https://github.com}"
+SEC_UPSTREAM="${SEC_UPSTREAM:-${XDG_DATA_HOME:-$HOME/.local/share}/security-kit/upstream}"
+mkdir -p "$CONF"
+
+find_claude() {
+    command -v claude 2>/dev/null && return
+    local d="$HOME/Library/Application Support/Claude/claude-code"
+    [ -d "$d" ] && ls -d "$d"/*/claude.app/Contents/MacOS/claude 2>/dev/null | sort -V | tail -1
+}
+CLAUDE_BIN="$(find_claude || true)"
+have_hermes() { command -v hermes >/dev/null 2>&1; }
+
+# ---- component manifest (one source of truth: the installer's own list) ----
+components() {
+    local kit_repo; kit_repo="$(git -C "$KIT_ROOT" remote get-url origin 2>/dev/null | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')"
+    printf 'kit\t%s\tkit\n' "${kit_repo:-feelthefusion/security-kit}"
+    grep -v '^#' "$KIT_ROOT/install/upstream-skills.tsv" | awk -F'\t' 'NF>=3 {split($1,a,"/"); print "upstream:" a[1] "/" a[2] "\t" a[1] "/" a[2] "\tupstream"}' | sort -u
+}
+
+revision() {  # repo kind → upstream HEAD sha
+    git ls-remote "$GIT_BASE/$1" HEAD 2>/dev/null | cut -c1-12
+}
+
+check_all() {
+    local tmp; tmp="$(mktemp -d)"
+    while IFS=$'\t' read -r name repo kind; do
+        ( printf '%s\t%s\t%s\t%s\n' "$name" "$repo" "$kind" "$(revision "$repo" "$kind")" > "$tmp/$(echo "$name" | tr '/:' '__')" ) &
+    done < <(components)
+    wait
+    cat "$tmp"/* 2>/dev/null | while IFS=$'\t' read -r name repo kind new; do
+        old="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("rev",{}).get(sys.argv[2],""))' "$STATE" "$name" 2>/dev/null)"
+        printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$repo" "$kind" "$old" "$new"
+    done
+    rm -rf "$tmp"
+}
+
+save_state() {
+    ROWS="$1" python3 - "$STATE" <<'PY'
+import json, os, sys, time
+p = sys.argv[1]
+try: s = json.load(open(p))
+except Exception: s = {}
+rev = s.setdefault("rev", {})
+for line in os.environ["ROWS"].splitlines():
+    name, repo, kind, old, new = (line.rstrip("\n").split("\t") + [""] * 5)[:5]
+    if new: rev[name] = new
+s["checked_at"] = int(time.time())
+json.dump(s, open(p, "w"), indent=2)
+PY
+}
+
+state_get() { python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); v=s
+for k in sys.argv[2].split("."): v=v.get(k,{}) if isinstance(v,dict) else {}
+print(v if not isinstance(v,(dict,list)) else json.dumps(v))' "$STATE" "$1" 2>/dev/null; }
+
+apply_changes() {   # $1 = TSV of changed rows
+    local changed="$1" done_list=()
+    while IFS=$'\t' read -r name repo kind old new; do
+        [ -n "$name" ] || continue
+        case "$kind" in
+            kit)
+                if [ -n "$(git -C "$KIT_ROOT" status --porcelain)" ]; then echo "kit: local edits in $KIT_ROOT — not pulling"; continue; fi
+                git -C "$KIT_ROOT" pull --ff-only --quiet || { echo "kit: pull failed"; continue; }
+                [ -n "$CLAUDE_BIN" ] && KIT_NO_PULL=1 bash "$KIT_ROOT/install/install.sh" >>"$LOG" 2>&1
+                have_hermes && KIT_NO_PULL=1 bash "$KIT_ROOT/install/hermes.sh" >>"$LOG" 2>&1
+                done_list+=("Security Kit $old→$new (skills, CLIs re-synced)") ;;
+            upstream)
+                local d="$SEC_UPSTREAM/$(printf '%s' "$repo" | tr '/' '_')"
+                if [ -d "$d/.git" ] && git -C "$d" fetch --depth 1 --quiet origin HEAD >>"$LOG" 2>&1 && git -C "$d" reset --hard --quiet FETCH_HEAD; then
+                    done_list+=("technique skills $old→$new")
+                fi
+                have_hermes && hermes skills update >>"$LOG" 2>&1 ;;
+        esac
+    done <<< "$changed"
+    [ "${#done_list[@]}" -gt 0 ] && printf '%s\n' "${done_list[@]}"
+}
+
+run() {   # $1 = apply|check
+    local mode="$1" rows changed out=""
+    rows="$(check_all)"
+    changed="$(awk -F'\t' '$4 != "" && $5 != "" && $4 != $5' <<< "$rows")"
+    if [ "$mode" = check ]; then
+        [ -n "$changed" ] && awk -F'\t' '{printf "  ↑ %-34s %s → %s\n", $1, $4, $5}' <<< "$changed" || echo "  ✓ everything current"
+        return
+    fi
+    [ -n "$changed" ] && out="$(apply_changes "$changed")"
+    save_state "$rows"
+    echo "$(date '+%F %T') checked $(wc -l <<< "$rows" | tr -d ' ') components; changed: $(awk -F'\t' '{print $1}' <<< "$changed" | xargs)" >> "$LOG"
+    [ -n "$out" ] && printf '%s\n' "$out"
+}
+
+fresh() {
+    local t; t="$(state_get checked_at)"; [ -n "$t" ] && [ $(( $(date +%s) - t )) -lt "$TTL" ]
+}
+
+case "${1:-}" in
+    --hook)
+        [ "${SEC_UPDATE:-on}" = off ] && exit 0
+        payload="$(cat 2>/dev/null || true)"
+        event="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1] or "{}").get("hook_event_name",""))' "$payload" 2>/dev/null)"
+        if [ -s "$NOTICE" ]; then
+            msg="Security Kit auto-updated since your last session: $(paste -sd ';' "$NOTICE" | sed 's/;/; /g')"
+            : > "$NOTICE"
+            if [ "$event" = on_session_start ]; then python3 -c 'import json,sys; print(json.dumps({"context": sys.argv[1]}))' "$msg"; else echo "$msg"; fi
+        fi
+        fresh && exit 0
+        ( mkdir "$LOCK" 2>/dev/null || exit 0; trap 'rmdir "$LOCK"' EXIT
+          fresh || { out="$(run apply)"; [ -n "$out" ] && printf '%s\n' "$out" >> "$NOTICE"; } ) </dev/null >/dev/null 2>&1 &
+        disown 2>/dev/null || true
+        exit 0 ;;
+    --check) echo "▶ upstream check (nothing applied)"; run check ;;
+    --status)
+        echo "Security Kit components  (state: $STATE)"
+        rows="$(check_all)"
+        awk -F'\t' '{ st = ($4 == "" ? "new" : ($4 == $5 ? "current" : "UPDATE")); printf "  %-8s %-36s %-40s %s\n", st, $1, $2, $5 }' <<< "$rows"
+        t="$(state_get checked_at)"; [ -n "$t" ] && echo "last check: $(date -r "$t" '+%F %T' 2>/dev/null || date -d "@$t" '+%F %T')" ;;
+    ""|--now)
+        mkdir "$LOCK" 2>/dev/null || { echo "another sec-update is running"; exit 0; }; trap 'rmdir "$LOCK"' EXIT
+        echo "▶ checking upstreams"; out="$(run apply)"
+        [ -n "$out" ] && printf '  ✓ %s\n' "$out" || echo "  ✓ everything current" ;;
+    -h|--help) sed -n '2,20p' "$SELF" | sed 's/^# \{0,1\}//' ;;
+    *) echo "usage: sec-update [--check|--status|--hook]" >&2; exit 2 ;;
+esac

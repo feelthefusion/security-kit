@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# =============================================================================
+# Security Kit — feature switches.   sec-settings stealth on|off
+#
+#   stealth on   writes robots.txt (block all + AI crawlers), stealth headers reference,
+#                and crawler blocklist into the current repo
+#   stealth off  removes robots.txt; keeps sec/stealth/ config for re-enable
+# =============================================================================
+set -euo pipefail
+SELF="${BASH_SOURCE[0]}"; while [ -L "$SELF" ]; do SELF="$(readlink "$SELF")"; done
+KIT_ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
+
+usage() { echo "usage: sec-settings stealth on|off"; exit 2; }
+
+cmd="${1:-}"; shift || true
+case "$cmd" in
+    stealth)
+        action="${1:-}"; shift || usage
+        REPO="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+        . "$KIT_ROOT/install/lib.sh"
+        case "$action" in
+            on)  cd "$REPO"; stealth_on "$REPO" ;;
+            off) cd "$REPO"; stealth_off "$REPO" ;;
+            *)   usage ;;
+        esac
+        ;;
+    apply|claude|hermes) ;;  # placeholder for future settings (reserved pattern)
+    -h|--help) usage ;;
+    '') usage ;;
+    *) echo "unknown setting: $cmd" >&2; usage ;;
+esac

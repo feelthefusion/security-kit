@@ -1,0 +1,49 @@
+# Upstream skills — THE curated set, one manifest for both hosts (parity by construction).
+#   Claude Code: install.sh keeps a shallow git checkout of the repo (pulled on session start by
+#                sec-update → live), and sec-init links each listed skill into the app repo's
+#                .claude/skills/ (git-excluded) → only these skills exist, so nothing duplicates.
+#   Hermes:      hermes.sh installs each row through the skills hub (`hermes skills update` = live).
+# Source: UnboundCompute/security-agent-skills (MIT) — 194 tool-agnostic white-box security skills.
+#   Each is ONE vulnerability class, so they load only on their trigger and never tax other work.
+#   Curated to "our sites and apps": web + API + mobile + the Marketing Kit's attack surface
+#   (Resend webhooks, Telnyx callbacks, CRM DB, partner payouts). The kit's own skills
+#   (skills/*) own the workflow + the stack specifics; these own the technique depth.
+# Deliberately NOT installed: EVM/DeFi/blockchain, Windows/AD, Kubernetes/IoT/embedded, and the
+#   enterprise directory/federation skills — none of them touch a web/API/mobile product.
+# hosts: both | claude | hermes      trust: community (Hermes scanner decides) | official (--force)
+# identifier (owner/repo/path)                          hosts   trust       owns (one line)
+UnboundCompute/security-agent-skills/skills/hunting-bugs-with-a-code-graph	both	community	white-box master loop: orient → enumerate the taxonomy → adjudicate
+UnboundCompute/security-agent-skills/skills/mapping-attack-surface	both	community	enumerate every entry point, source and sink before touching one
+UnboundCompute/security-agent-skills/skills/adjudicating-taint-paths	both	community	turn a source-to-sink lead into a confirmed finding or a documented kill
+UnboundCompute/security-agent-skills/skills/detecting-race-conditions	both	community	TOCTOU, check-then-act, atomicity, lock misuse (credits, balances, webhooks)
+UnboundCompute/security-agent-skills/skills/hunting-business-logic-flaws	both	community	step-skip, limit/price overflow, replay, paywall/entitlement bypass
+UnboundCompute/security-agent-skills/skills/detecting-memory-safety-bugs	both	community	UAF, double-free, OOB, uninitialized, NULL deref
+UnboundCompute/security-agent-skills/skills/auditing-guard-gaps	both	community	find the unguarded peer of a guarded function
+UnboundCompute/security-agent-skills/skills/finding-crypto-misuse	both	community	nonce reuse, key recovery, padding oracles, length extension
+UnboundCompute/security-agent-skills/skills/finding-fail-open-flaws	both	community	controls that allow on error, empty allowlist, missing input, caught denial
+UnboundCompute/security-agent-skills/skills/adjudicating-dependency-cve-reachability	both	community	is a dependency CVE actually reachable from your code, or noise
+UnboundCompute/security-agent-skills/skills/hunting-supply-chain-risks	both	community	dependency confusion, slopsquatting, poisoned CI, pipeline privilege
+UnboundCompute/security-agent-skills/skills/reviewing-ai-generated-code	both	community	hallucinated imports, insecure defaults, claim-vs-behavior gaps
+UnboundCompute/security-agent-skills/skills/hunting-bug-variants	both	community	one confirmed bug → its siblings and the paths a fix missed
+UnboundCompute/security-agent-skills/skills/hunting-broken-object-level-authorization	both	community	IDOR / BOLA — object ids parsed straight from requests
+UnboundCompute/security-agent-skills/skills/hunting-orm-and-query-builder-injection	both	community	SQL/NoSQL injection through ORM/query-builder misuse
+UnboundCompute/security-agent-skills/skills/hunting-blind-and-second-order-sql-injection	both	community	stored values that become queries later
+UnboundCompute/security-agent-skills/skills/hunting-nosql-operator-and-where-injection	both	community	Mongo/NoSQL operator and where-clause injection
+UnboundCompute/security-agent-skills/skills/hunting-os-command-injection	both	community	shell/exec injection through args, filenames, redirects
+UnboundCompute/security-agent-skills/skills/hunting-path-traversal-and-file-access	both	community	../ and absolute-path escape to arbitrary file read/write
+UnboundCompute/security-agent-skills/skills/hunting-reflected-and-stored-xss	both	community	XSS in templates, sinks, and dangerous HTML APIs
+UnboundCompute/security-agent-skills/skills/hunting-server-side-template-injection	both	community	SSTI → code execution through template engines
+UnboundCompute/security-agent-skills/skills/hunting-open-redirect-and-forced-navigation	both	community	open redirect, target="_blank", forced navigation
+UnboundCompute/security-agent-skills/skills/auditing-csrf-and-unsafe-state-changes	both	community	CSRF and state-changing GET/unsafe methods
+UnboundCompute/security-agent-skills/skills/auditing-cors-and-cross-origin-trust	both	community	CORS misconfig, credentials + wildcard, origin reflection
+UnboundCompute/security-agent-skills/skills/auditing-session-lifecycle-and-fixation	both	community	session fixation, rotation on privilege change, expiry
+UnboundCompute/security-agent-skills/skills/auditing-jwt-verification-and-key-trust	both	community	JWT alg confusion, none alg, key trust, exp/aud validation
+UnboundCompute/security-agent-skills/skills/auditing-api-key-and-token-lifecycle	both	community	API key rotation, revocation, leak, scope
+UnboundCompute/security-agent-skills/skills/auditing-error-handling-and-information-exposure	both	community	stack traces, verbose errors, source/secret leak in output
+UnboundCompute/security-agent-skills/skills/auditing-file-upload-and-content-handling	both	community	upload types, stored XSS, zip bombs, unvalidated MIME
+UnboundCompute/security-agent-skills/skills/auditing-clickjacking-and-ui-redressing	both	community	framing, X-Frame-Options, CSP frame-ancestors
+UnboundCompute/security-agent-skills/skills/reviewing-rate-limiting-and-abuse-controls	both	community	rate limits, abuse controls, enumeration vectors
+UnboundCompute/security-agent-skills/skills/auditing-security-logging-completeness	both	community	what gets logged, integrity of the log, what's missing
+UnboundCompute/security-agent-skills/skills/auditing-webhook-authenticity-and-callback-trust	both	community	Resend/Telnyx-style webhook signature verification + replay
+UnboundCompute/security-agent-skills/skills/auditing-payment-state-machine-and-idempotency	both	community	payment state machine, idempotency, double-spend, refund abuse
+UnboundCompute/security-agent-skills/skills/hunting-mobile-secret-and-storage-exposure	both	community	secrets, storage, and debug interfaces in mobile clients

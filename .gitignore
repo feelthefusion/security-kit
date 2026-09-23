@@ -1,0 +1,18 @@
+# node / app noise
+node_modules/
+dist/
+build/
+.next/
+.vercel/
+.netlify/
+coverage/
+
+# kit runtime
+.agents/security-kit.env
+.agents/.security-kit-version
+
+# upstream checkouts are fetched live, never committed
+.cache/
+
+# os
+.DS_Store
