@@ -47,6 +47,31 @@ webhooks, CRM DB, partner payouts).
    browser-verify shows the UI proof).
 7. **Stealth (optional)** — `sec-settings stealth on` to drop the site off search and LLM crawlers.
 
+## Ownership map — one owner per job (no two skills compete)
+
+The kit is two clean layers that never fight: **8 workflow skills** (the loop) + **48 technique
+skills** (one vulnerability class each, loaded only on that trigger). Below, every job has exactly
+ONE owner. When two skills touch the same thing, the table says which one routes to the other.
+
+| Job | Owner | Not these (they hand off to the owner) |
+|-----|-------|----------------------------------------|
+| Map the attack surface (routes, webhooks, deps, secrets) | **attack-surface** | upstream `mapping-attack-surface` is the generic method — invoke it *inside* attack-surface only if you need it, never as a rival recon pass |
+| Run the adversarial protocol (hypothesis → kill-chain → blast radius) | **red-team** | upstream `hunting-bugs-with-a-code-graph` is the white-box *technique* red-team may call, not a competing loop |
+| Confirm a source-to-sink lead | **adjudicating-taint-paths** (upstream) | `red-team` *raises* the lead; it does not re-adjudicate |
+| Prove a finding (PoC + regression) | **exploit-verify** | — |
+| Fix the vulnerability (defense-in-depth) | **harden-stack** | — |
+| Fuzz / property / load / race testing | **fuzz-harness** | — |
+| Debug a production-only incident | **prod-debug** (runtime evidence) | Superpowers `systematic-debugging` owns code-level root cause — prod-debug gathers the signal, then hands off |
+| Secrets / CVE / CI scanning | Skill Starter Kit **security-gate** (gitleaks · osv-scanner · zizmor) | not re-implemented here — `harden-stack` and the verify gate call it |
+| Run the regression suite at turn end | Skill Starter Kit **verify-gate** (`verify.sh`) | `exploit-verify` writes the tests; verify-gate runs them |
+| Block destructive commands / secrets in output | Skill Starter Kit **guardrails** | not re-implemented here |
+| Real-time warnings while editing | Skill Starter Kit **security-guidance** / `claude-security` (Claude Code plugins) | not re-implemented here |
+| Drop off search / block crawlers | **stealth-mode** (`sec-settings stealth on\|off`) | — |
+
+**The 48 technique skills don't compete with each other** — each owns one vulnerability class
+(SQLi, XSS, SSRF, race, business-logic, …) and its description names only that class, so only the
+matching one loads. The 8 workflow skills never duplicate a technique class; they orchestrate.
+
 ## Rules that hold across the kit
 
 - **Zero trust.** Every user input is malicious; every dependency is compromised. Source-to-sink

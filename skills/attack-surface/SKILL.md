@@ -1,6 +1,6 @@
 ---
 name: attack-surface
-description: "Reconnaissance: enumerate every entry point, source, sink, webhook, and dependency your site or app exposes. Use before any red-team pass or when someone asks 'what is our attack surface?' or 'map our routes for security.' Reads .agents/security-context.md and hands off to red-team."
+description: "Reconnaissance: enumerate every entry point, source, sink, webhook, and dependency your site or app exposes. Use before any red-team pass or when asked 'what is our attack surface?' or 'map our routes for security.' Reads .agents/security-context.md and hands off to red-team. NOT for running the actual attack (see red-team) or confirming a lead (see adjudicating-taint-paths)."
 ---
 
 # Attack-surface recon
