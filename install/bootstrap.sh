@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Security Kit — remote bootstrap (always latest)
+# Security Kit — remote bootstrap (always latest, one command = everything)
 #   curl -fsSL https://raw.githubusercontent.com/feelthefusion/security-kit/main/install/bootstrap.sh | bash
-#   ... | bash -s -- hermes        # Hermes instead of Claude Code
-#   ... | bash -s -- both          # both hosts
-# Clones to ~/.security-kit (or pulls), then runs the installer from that checkout.
-# Kit skills are SYMLINKS into this checkout, so every re-run updates them in place.
+#   ... | bash -s -- claude          # Claude Code only
+#   ... | bash -s -- hermes          # Hermes only
+# Clones to ~/.security-kit (or pulls), then installs BOTH hosts by default —
+# no flags, no follow-up. Kit skills are SYMLINKS into this checkout, so every
+# re-run updates them in place; a session-start hook keeps everything current.
 # =============================================================================
 set -euo pipefail
-TARGET="${1:-claude}"
+TARGET="${1:-both}"
 KIT_DIR="${KIT_DIR:-$HOME/.security-kit}"
 REPO="https://github.com/feelthefusion/security-kit.git"
 command -v git >/dev/null 2>&1 || { echo "✗ git required"; exit 1; }

@@ -2,15 +2,16 @@
 
 **Red-team adversarial harness → attack-surface recon → exploit verification → hardening → fuzz/race testing → production debugging → stealth mode.**
 
-Live installs, never vendored. Kit skills are symlinked into your checkout (pulled every run); curated upstream white-box technique skills are fetched from their repo at install time and updated on session start. Works on Claude Code and Hermes.
+Live installs, never vendored. Kit skills are symlinked into your checkout (pulled every run); curated upstream white-box technique skills are fetched from their repo at install time. Everything is wired and enabled in one command — both hosts, and it **updates itself + every skill automatically on each session start** (no timers, nothing to run).
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/feelthefusion/security-kit/main/install/bootstrap.sh | bash              # Claude Code
-curl -fsSL https://raw.githubusercontent.com/feelthefusion/security-kit/main/install/bootstrap.sh | bash -s -- hermes  # Hermes
-sec-init            # once per repo: .agents/security-context.md, sec/ dir, threats, verify step
-sec-doctor          # what is wired, what is missing, exact fix commands
+curl -fsSL https://raw.githubusercontent.com/feelthefusion/security-kit/main/install/bootstrap.sh | bash   # installs Claude Code + Hermes, enables everything
+sec-init            # once per app repo (the only per-repo step)
+sec-doctor          # confirm: skills, CLIs, auto-update hook, CI review — all GREEN
 sec-settings stealth on|off   # noindex, crawler block, per-stack headers — disappear from search
 ```
+
+`... | bash -s -- claude` or `... -s -- hermes` installs a single host. The CI security review is seeded per repo by `sec-init` and auto-activates from a `CLAUDE_API_KEY` in your environment; otherwise `gh secret set CLAUDE_API_KEY` once.
 
 ## Components
 

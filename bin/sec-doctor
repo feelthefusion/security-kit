@@ -66,4 +66,13 @@ say "CI security review (Anthropic claude-code-security-review):"
 say "  · seeded per repo by sec-init as .github/workflows/security-review.yml (editable)"
 say "  · runs on PRs only when the CLAUDE_API_KEY repo secret is set — skipped (never red) otherwise"
 say "  · local equivalent: /security-review inside Claude Code"
+say "auto-update (self + every skill):"
+claude_hook=0; hermes_hook=0
+grep -q "sec-update" "$HOME/.claude/settings.json" 2>/dev/null && claude_hook=1
+[ "$(hermes config get --json hooks.on_session_start 2>/dev/null || echo null)" != "null" ] \
+    && echo "$(hermes config get --json hooks.on_session_start 2>/dev/null)" | grep -q "sec-update" && hermes_hook=1
+if [ "$claude_hook" = 1 ] && [ "$hermes_hook" = 1 ]; then ok "SessionStart + on_session_start → sec-update --hook (both hosts)"
+elif [ "$claude_hook" = 1 ] || [ "$hermes_hook" = 1 ]; then
+    say "  · one host wired (claude=$claude_hook hermes=$hermes_hook) — re-run the installer for the other"
+else say "  · no auto-update hook — re-run the installer to wire it"; fi
 say "── done ───────────────────────────────────────────────"
