@@ -32,6 +32,19 @@ while IFS=$'\t' read -r ident hosts trust _; do
 done < install/upstream-skills.tsv
 [ "$total" -gt 0 ] && ok "$total upstream rows parse (ident/hosts/trust)"
 
+echo "── cohesion: no two skills compete ──"
+# upstream skill names must be unique (one vulnerability class per skill)
+dupes=$(grep -v '^#' install/upstream-skills.tsv | cut -f1 | sed 's#.*/##' | sort | uniq -d)
+[ -z "$dupes" ] && ok "upstream skill names unique" || bad "duplicate upstream skills: $dupes"
+# upstream names must not collide with kit skills (workflow layer vs technique layer)
+collide=""
+for k in security-kit red-team attack-surface exploit-verify harden-stack fuzz-harness prod-debug stealth-mode; do
+    grep -v '^#' install/upstream-skills.tsv | cut -f1 | sed 's#.*/##' | grep -qx "$k" && collide="$collide $k"
+done
+[ -z "$collide" ] && ok "no upstream/kit skill name collision" || bad "collision with kit skill:$collide"
+# the map skill must name the ownership router (one owner per job)
+grep -q "one owner per job" skills/security-kit/SKILL.md && ok "ownership map present in security-kit" || bad "security-kit missing ownership map"
+
 echo "── templates & CLIs ──"
 for f in templates/robots.txt templates/crawler-blocklist.txt templates/stealth-headers.md templates/github/security-kit-sync.yml bin/sec-doctor bin/sec-update bin/sec-settings install/init-project.sh; do
     [ -f "$f" ] && ok "$f" || bad "$f missing"

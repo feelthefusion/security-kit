@@ -57,6 +57,6 @@ UnboundCompute/security-agent-skills/skills/hunting-http-request-smuggling-and-d
 UnboundCompute/security-agent-skills/skills/testing-request-smuggling	both	community	practical smuggling/desync testing (CL.0, TE vs CL)
 UnboundCompute/security-agent-skills/skills/hunting-host-header-and-url-parsing-trust	both	community	host header injection, URL-parsing trust, cache poisoning
 UnboundCompute/security-agent-skills/skills/auditing-graphql-attack-surface	both	community	GraphQL introspection, depth/alias/batching abuse
-UnboundCompute/security-agent-skills/skills/testing-agents-for-indirect-prompt-injection	both	community	indirect prompt injection against LLM/agent endpoints
+UnboundCompute/security-agent-skills/skills/testing-agents-for-indirect-prompt-injection	claude	community	indirect prompt injection against LLM/agent endpoints (Hermes scanner flags the embedded injection payloads as 'dangerous' — unfixable by design; Claude Code gets it via the live symlink)
 UnboundCompute/security-agent-skills/skills/auditing-ai-agent-permissions	both	community	LLM/agent permission scope: excessive agency, tool misuse
 UnboundCompute/security-agent-skills/skills/hunting-formula-injection-in-exports	both	community	CSV/export formula injection (=cmd| leading cells)
