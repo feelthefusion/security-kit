@@ -11,7 +11,7 @@ sec-doctor          # confirm: skills, CLIs, auto-update hook, CI review — all
 sec-settings stealth on|off   # noindex, crawler block, per-stack headers — disappear from search
 ```
 
-`... | bash -s -- claude` or `... -s -- hermes` installs a single host. The CI security review is seeded per repo by `sec-init` and auto-activates from a `CLAUDE_API_KEY` in your environment; otherwise `gh secret set CLAUDE_API_KEY` once.
+`... | bash -s -- claude` or `... -s -- hermes` installs a single host. Security review runs on your Claude Pro/Max plan, with no API key: `sec-init` installs a pre-push hook, so every `git push` is reviewed automatically once Claude Code is signed in (`claude`, then `/login`).
 
 ## Components
 
@@ -34,9 +34,9 @@ Every skill is one vulnerability class: source-to-sink taint adjudication, race-
 
 **→ Skill Starter Kit**: `exploit-verify` feeds regressions into `verify-gate`. `harden-stack` hands off to `security-gate` (gitleaks/osv-scanner/zizmor for scanner coverage) and `guardrails` (block destructive commands). `prod-debug` hands off to `systematic-debugging` for deep root-cause analysis. `fuzz-harness` hands off to `browser-verify` for UI proof.
 
-**→ Marketing Kit**: `red-team` and `attack-surface` specifically target the lifecycle-engine attack surface (Resend webhooks, Telnyx callbacks, outbox worker, CRM DB, partner payout logic). `exploit-verify` tests race conditions on credits, commissions, and idempotency. `stealth-mode` covers your marketing sites.
+**→ Marketing Kit**: `red-team` and `attack-surface` specifically target the lifecycle-engine attack surface (Resend webhooks, Telnyx callbacks, outbox worker, CRM DB, partner payout logic). `exploit-verify` tests race conditions on credits, commissions, and idempotency. `stea**→ Every push (automatic)**: `sec-init` installs a `pre-push` hook (`sec-review`). Before anything leaves your machine, Claude Code runs headless on your Pro/Max plan with Anthropic's own `/security-review` instructions (fetched live), over exactly the commits being pushed and with read-only tools. A HIGH finding blocks the push, and each diff is reviewed once (cached). Skip once: `SEC_REVIEW=off git push`. If Claude Code is signed out, the review is skipped visibly and never blocks.
 
-**→ CI (every PR)**: `sec-init` seeds `.github/workflows/security-review.yml` running Anthropic's `claude-code-security-review` on every pull request — findings posted as PR line comments with severity + remediation. It activates the moment you add a `CLAUDE_API_KEY` repo secret (skipped, never red, until then). Local twin: `/security-review` inside Claude Code.
+**→ Pull requests (optional)**: `sec-init` seeds `.github/workflows/security-review.yml`, Anthropic's `claude-code-action` on the same plan through an OAuth token. It's skipped (grey, never red) until the secret exists. One time per repo: `claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`.: `/security-review` inside Claude Code.
 
 ## Freedom-first
 - **No legal/compliance text of the kit's own.** No T&Cs, no policies, no disclaimers, no gatekeeping. Released under the Unlicense (public domain).

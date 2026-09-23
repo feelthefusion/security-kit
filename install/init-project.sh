@@ -146,6 +146,7 @@ cat > "$BLOCK" <<'MD'
 - Loop: skill `security-kit` → orient → recon (`attack-surface`) → attack (`red-team`) → prove (`exploit-verify`) → fix (`harden-stack`) → verify (Skill Starter Kit `verify.sh`) → stealth (`sec-settings stealth on` when needed).
 - Zero trust: every user input is malicious, every dependency is compromised. Source-to-sink before you trust code; race condition and business-logic order before you trust a flow.
 - Every finding is proved with a PoC + regression test — never a claim without a repro. Findings go in `sec/attacks/<id>/`; regressions go in `sec/regressions/`.
+- Every `git push` is security-reviewed automatically (pre-push `sec-review` on the Claude plan). Run `sec-review` right before pushing (allow up to 15 min) so the push is instant; a HIGH finding blocks it — fix, don't bypass unless the user says so.
 - Freedom first: no legal/compliance gating, no T&Cs or policies. Legal sections inside vendor/upstream skills are background only. Stealth mode is opt-in only: `sec-settings stealth on|off`.
 MD
 python3 - "$REPO" "$BLOCK" <<'PY'
@@ -223,28 +224,38 @@ if git remote get-url origin 2>/dev/null | grep -q "github.com"; then
     mkdir -p .github/workflows
     sed "s#__KIT_REPO__#${KIT_SLUG:-feelthefusion/security-kit}#" "$KIT_ROOT/templates/github/security-kit-sync.yml" > .github/workflows/security-kit-sync.yml
     echo "  · .github/workflows/security-kit-sync.yml (webhook receiver) ✓"
-    # AI PR review (Anthropic claude-code-security-review) — seeded once, editable. Skipped
-    # (never red) until the CLAUDE_API_KEY repo secret is set. Auto-set the secret now if a
-    # key is in the environment (zero manual step); otherwise print the one command.
-    if [ ! -f .github/workflows/security-review.yml ]; then
-        cp "$KIT_ROOT/templates/github/security-review.yml" .github/workflows/security-review.yml
-        echo "  · .github/workflows/security-review.yml (AI PR review) ✓"
+    # AI PR review on the Claude subscription (claude-code-action + CLAUDE_CODE_OAUTH_TOKEN) —
+    # seeded once, editable. Skipped (never red) until the secret exists. The kit's previous
+    # API-key template (claude-code-security-review + CLAUDE_API_KEY, invalid `secrets` in a
+    # job-level if) is replaced automatically; any other existing file is kept.
+    SR=.github/workflows/security-review.yml
+    if [ ! -f "$SR" ]; then
+        cp "$KIT_ROOT/templates/github/security-review.yml" "$SR"
+        echo "  · $SR (AI PR review on your Claude plan) ✓"
+    elif grep -q 'claude-code-security-review' "$SR" && grep -q 'CLAUDE_API_KEY' "$SR"; then
+        cp "$KIT_ROOT/templates/github/security-review.yml" "$SR"
+        echo "  · $SR: replaced the old API-key template with the Claude-plan one ✓"
     else
-        echo "  · .github/workflows/security-review.yml exists (kept — editable) ✓"
+        echo "  · $SR exists (kept — editable) ✓"
     fi
-    if [ -n "${CLAUDE_API_KEY:-}${ANTHROPIC_API_KEY:-}" ]; then
-        KEY="${CLAUDE_API_KEY:-${ANTHROPIC_API_KEY:-}}"
-        if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-            if printf '%s' "$KEY" | gh secret set CLAUDE_API_KEY >/dev/null 2>&1; then
-                echo "  · CLAUDE_API_KEY secret auto-set from env — CI review is LIVE ✓"
-            else
-                echo "  ⚠ gh secret set failed — run: gh secret set CLAUDE_API_KEY"
-            fi
+    if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+        if printf '%s' "$CLAUDE_CODE_OAUTH_TOKEN" | gh secret set CLAUDE_CODE_OAUTH_TOKEN >/dev/null 2>&1; then
+            echo "  · CLAUDE_CODE_OAUTH_TOKEN secret auto-set from env — PR review is LIVE ✓"
         else
-            echo "  ⚠ CLAUDE_API_KEY in env but gh not authed — run: gh auth login, then: gh secret set CLAUDE_API_KEY"
+            echo "  ⚠ gh secret set failed — run: gh secret set CLAUDE_CODE_OAUTH_TOKEN"
         fi
     else
-        echo "    activate CI review (one time): gh secret set CLAUDE_API_KEY   (Claude API + Claude Code enabled)"
+        echo "    PR review (optional, one time): claude setup-token   then: gh secret set CLAUDE_CODE_OAUTH_TOKEN"
+    fi
+fi
+
+# --- automatic security review on every push (your Claude plan, no API key) -----------------
+if git rev-parse --git-dir >/dev/null 2>&1; then
+    "$KIT_ROOT/bin/sec-review" --install-hook
+    if command -v claude >/dev/null 2>&1 && env -u CLAUDECODE claude auth status 2>/dev/null | grep -qE '"loggedIn": *true'; then
+        echo "  · Claude Code signed in — pushes are reviewed on your plan ✓"
+    else
+        echo "  ⚠ Claude Code isn't signed in — pushes go through unreviewed until you run: claude, then /login"
     fi
 fi
 

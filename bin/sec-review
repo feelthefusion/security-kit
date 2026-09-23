@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+# =============================================================================
+# sec-review — automatic security review on `git push`, on your Claude subscription.
+#
+#   sec-review                  review the commits not pushed yet (run before a push: the
+#                               push itself is then instant, the result is cached)
+#   sec-review --pre-push R U   git pre-push hook mode (reads the pushed refs on stdin)
+#   sec-review --install-hook   add the pre-push hook to this repo (never clobbers one)
+#   sec-review --status         hook + Claude sign-in state for this repo
+#
+# The reviewer is Claude Code headless (`claude -p`) signed in with your Pro/Max plan:
+# no API key, no API billing. The instructions are Anthropic's own /security-review
+# command, fetched live from anthropics/claude-code-security-review (cached offline).
+# It reviews exactly the commits being pushed (never uncommitted work) with read-only
+# tools. A HIGH finding blocks the push; everything else is printed.
+#   Skip once:  SEC_REVIEW=off git push      (or: git push --no-verify)
+# No claude / signed out / network error / timeout → skipped VISIBLY, never a stuck push.
+# =============================================================================
+set -uo pipefail
+PROMPT_URL="https://raw.githubusercontent.com/anthropics/claude-code-security-review/main/.claude/commands/security-review.md"
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/security-kit"
+CLAUDE_BIN="${SEC_REVIEW_CLAUDE:-claude}"
+TIMEOUT="${SEC_REVIEW_TIMEOUT:-900}"
+MAX_DIFF="${SEC_REVIEW_MAX_DIFF:-200000}"
+ZERO="0000000000000000000000000000000000000000"
+MARK="# security-kit: sec-review pre-push hook"
+EXCLUDES=(":(exclude)package-lock.json" ":(exclude)**/package-lock.json" ":(exclude)*.lock" ":(exclude)**/*.lock" ":(exclude)**/meta/*_snapshot.json" ":(exclude)*.min.js")
+
+say() { printf '%s\n' "$*" >&2; }
+
+claude_ready() {  # on PATH and signed in (Pro/Max login or any Claude Code auth)
+    command -v "$CLAUDE_BIN" >/dev/null 2>&1 || return 1
+    env -u CLAUDECODE "$CLAUDE_BIN" auth status 2>/dev/null | grep -qE '"loggedIn": *true'
+}
+
+instructions() {  # the official command body from OBJECTIVE: on (its git context is replaced)
+    local f tmp; f="$CACHE/security-review.md"; mkdir -p "$CACHE"; tmp="$(mktemp)"
+    if curl -fsSL --max-time 8 "$PROMPT_URL" -o "$tmp" 2>/dev/null && grep -q '^OBJECTIVE:' "$tmp"; then mv "$tmp" "$f"; else rm -f "$tmp"; fi
+    if [ -s "$f" ]; then awk 'f || /^OBJECTIVE:/ { f = 1; print }' "$f"; return; fi
+    cat <<'TXT'
+OBJECTIVE:
+Perform a security-focused review of the changes above. Report only HIGH-CONFIDENCE
+(>80%) vulnerabilities with real exploitation potential that these changes newly add:
+injection (SQL, command, template, path), authentication/authorization bypass, secrets in
+code, unsafe deserialization, SSRF, XSS, broken crypto, sensitive data exposure. Skip
+style, theory, DoS/rate limiting and pre-existing issues. For each finding give
+`# Vuln N: <category>: <file:line>`, Severity (HIGH/MEDIUM), Description, Exploit Scenario,
+Recommendation. Use the repository tools to confirm context before reporting.
+TXT
+}
+
+review_range() {  # $1 base (may be empty), $2 head → 0 = pass/skip, 1 = blocked
+    local base="$1" head="$2" top dir key diff prompt out pid t rc verdict n
+    top="$(git rev-parse --show-toplevel)"
+    [ -n "$base" ] || base="$(git merge-base "$head" origin/HEAD 2>/dev/null || true)"
+    [ -n "$base" ] || base="$(git rev-parse -q --verify "$head~20" 2>/dev/null || git hash-object -t tree /dev/null)"
+    diff="$(git diff "$base" "$head" -- . "${EXCLUDES[@]}")"
+    [ -n "$diff" ] || { say "✓ security review: nothing to review"; return 0; }
+    dir="$(git rev-parse --git-common-dir)/security-kit/reviews"; mkdir -p "$dir"
+    key="$(printf '%s' "$diff" | git hash-object --stdin)"
+    [ "${SEC_REVIEW:-on}" = rerun ] && rm -f "$dir/$key.pass" "$dir/$key.block"
+    if [ -f "$dir/$key.pass" ]; then say "✓ security review: already passed for this diff ($dir/$key.md)"; return 0; fi
+    if [ -f "$dir/$key.block" ]; then
+        say "✗ push blocked: this exact diff has HIGH security findings — $dir/$key.md"
+        say "  fix + commit, or push anyway once: SEC_REVIEW=off git push   (re-review: SEC_REVIEW=rerun)"; return 1
+    fi
+    if ! claude_ready; then
+        say "⚠ security review skipped: Claude Code isn't signed in here (run: claude, then /login — uses your Pro/Max plan)"; return 0
+    fi
+    prompt="$(mktemp)"; out="$dir/$key.md"
+    {
+        echo "You are a senior security engineer reviewing a git push to $(basename "$top") (range ${base:0:12}..${head:0:12})."
+        echo; echo "FILES MODIFIED:"; git diff --name-only "$base" "$head" -- . "${EXCLUDES[@]}"
+        echo; echo "COMMITS:"; git log --no-decorate --format='%h %s' "$base..$head" 2>/dev/null | head -50
+        echo; echo "DIFF CONTENT:"; echo '```diff'; printf '%s\n' "${diff:0:$MAX_DIFF}"; echo '```'
+        [ "${#diff}" -gt "$MAX_DIFF" ] && echo "(diff truncated at $MAX_DIFF bytes — read the rest with: git diff $base $head -- <file>)"
+        echo; echo "Review the complete diff above. It contains every change in this push."; echo
+        instructions
+        echo; echo "The LAST line of your reply must be exactly one of (machine-read):"
+        echo "SECURITY-REVIEW: PASS              (no HIGH severity findings)"
+        echo "SECURITY-REVIEW: BLOCK <count>     (<count> HIGH severity findings)"
+    } > "$prompt"
+    say "▶ security review of $(git diff --name-only "$base" "$head" -- . "${EXCLUDES[@]}" | wc -l | tr -d ' ') file(s) on your Claude plan — a few minutes (Ctrl-C cancels the push)"
+    ( cd "$top" && exec env -u CLAUDECODE "$CLAUDE_BIN" -p --output-format text \
+        --allowedTools "Read,Grep,Glob,LS,Task,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*)" \
+        --disallowedTools "Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch" \
+        < "$prompt" > "$out" 2> "$out.err" ) &
+    pid=$!; t=0
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep 2; t=$((t + 2))
+        if [ "$t" -ge "$TIMEOUT" ]; then kill "$pid" 2>/dev/null; say "⚠ security review timed out after ${TIMEOUT}s — push allowed (rerun: sec-review)"; rm -f "$prompt"; return 0; fi
+    done
+    wait "$pid"; rc=$?; rm -f "$prompt"
+    verdict="$(grep -E 'SECURITY-REVIEW: (PASS|BLOCK)' "$out" 2>/dev/null | tail -1 | sed -E 's/.*SECURITY-REVIEW: //; s/[^A-Z0-9 ].*$//')"
+    case "$verdict" in
+        PASS*)
+            touch "$dir/$key.pass"; say "✓ security review passed — no HIGH findings (report: $out)"
+            grep -qiE 'severity[^a-z]*medium' "$out" && say "  note: MEDIUM findings in the report"; return 0 ;;
+        BLOCK*)
+            n="${verdict#BLOCK }"; touch "$dir/$key.block"; sed '$d' "$out" | head -150 >&2
+            say "✗ push blocked: ${n:-some} HIGH security finding(s) — full report: $out"
+            say "  fix + commit, then push again — or push anyway once: SEC_REVIEW=off git push"; return 1 ;;
+        *)
+            say "⚠ security review didn't finish (exit $rc: $(head -c 200 "$out.err" 2>/dev/null | tr '\n' ' ')) — push allowed (rerun: sec-review)"
+            rm -f "$out"; return 0 ;;
+    esac
+}
+
+pre_push() {
+    if [ "${SEC_REVIEW:-on}" = off ]; then say "⚠ security review skipped (SEC_REVIEW=off)"; cat >/dev/null; return 0; fi
+    local lref lsha rref rsha base fail=0
+    while read -r lref lsha rref rsha; do
+        [ "$lsha" = "$ZERO" ] && continue                     # branch delete
+        case "$lref" in refs/tags/*) continue ;; esac          # tags point at pushed commits
+        base=""; [ "$rsha" != "$ZERO" ] && git cat-file -e "$rsha^{commit}" 2>/dev/null && base="$rsha"
+        review_range "$base" "$lsha" < /dev/null || fail=1
+    done
+    return "$fail"
+}
+
+manual() {
+    local up; up="$(git rev-parse -q --verify '@{push}' 2>/dev/null || git rev-parse -q --verify '@{upstream}' 2>/dev/null || true)"
+    [ -n "$up" ] && up="$(git merge-base "$up" HEAD)"
+    review_range "$up" "$(git rev-parse HEAD)"
+}
+
+install_hook() {
+    local hooks f; hooks="$(git rev-parse --git-path hooks)"; f="$hooks/pre-push"; mkdir -p "$hooks"
+    if [ -f "$f" ] && ! grep -q "$MARK" "$f"; then
+        say "  ⚠ $f exists (not ours) — kept. To chain the review, add near its top:"
+        say '      sec-review --pre-push "$@" || exit 1     (it reads the pushed refs on stdin)'
+        return 0
+    fi
+    cat > "$f" <<EOF
+#!/bin/sh
+$MARK — automatic security review of the commits being pushed,
+# on your Claude subscription (claude -p). Skip once: SEC_REVIEW=off git push
+S="\$(command -v sec-review || echo "\$HOME/.local/bin/sec-review")"
+[ -x "\$S" ] || exit 0
+exec "\$S" --pre-push "\$@"
+EOF
+    chmod +x "$f"; say "  · pre-push hook → sec-review (automatic security review on every push) ✓"
+}
+
+status() {
+    local f; f="$(git rev-parse --git-path hooks)/pre-push"
+    if [ -f "$f" ] && grep -q "$MARK" "$f"; then say "  · pre-push review hook ✓"; elif [ -f "$f" ]; then say "  ⚠ pre-push hook is someone else's (review not chained)"; else say "  ✗ no pre-push review hook — run: sec-review --install-hook"; fi
+    if claude_ready; then say "  · Claude Code signed in ✓ (reviews run on your plan)"; else say "  ✗ Claude Code not signed in — run: claude, then /login"; fi
+}
+
+case "${1:-}" in
+    -h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+esac
+git rev-parse --git-dir >/dev/null 2>&1 || { say "sec-review: not inside a git repo"; exit 2; }
+case "${1:-}" in
+    --pre-push) shift; pre_push "$@" ;;
+    --install-hook) install_hook ;;
+    --status) status ;;
+    "") manual ;;
+    *) say "usage: sec-review [--pre-push R U | --install-hook | --status]"; exit 2 ;;
+esac
