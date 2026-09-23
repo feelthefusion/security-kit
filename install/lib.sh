@@ -37,8 +37,8 @@ kit_self_update() {  # $1 = kit root
 link_skill() {  # link_skill <src-dir> <dst-dir>
     local src="$1" dst="$2"
     if [ -L "$dst" ] && [ "$(readlink "$dst")" = "$src" ]; then ok "$(basename "$dst") linked"; return 0; fi
-    [ -e "$dst" ] && rm -rf "$dst"          # replace a stale copy/old link
-    ln -s "$src" "$dst" && ok "$(basename "$dst") → $src"
+    { [ -e "$dst" ] || [ -L "$dst" ]; } && rm -rf "$dst"   # replace stale copy / old link / broken symlink
+    ln -sfn "$src" "$dst" && ok "$(basename "$dst") → $src"
 }
 
 # ---- curated upstream skills (install/upstream-skills.tsv) ----------------------------------

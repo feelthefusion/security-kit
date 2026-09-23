@@ -23,7 +23,7 @@ done
 say "Claude Code:"
 if [ -d "$HOME/.claude/skills" ]; then
     n=$(ls -1 "$HOME/.claude/skills" 2>/dev/null | grep -cE '^(security-kit|red-team|attack-surface|exploit-verify|harden-stack|fuzz-harness|prod-debug|stealth-mode)$')
-    ok "$n/8 kit skills linked"; [ "$n" -lt 8 ] && bad "run: bash $KIT_ROOT/install/install.sh"
+    [ "$n" -eq 8 ] && ok "$n/8 kit skills linked" || bad "$n/8 kit skills linked — run: bash $KIT_ROOT/install/install.sh"
     grep -q 'security-kit:start' "$HOME/.claude/CLAUDE.md" 2>/dev/null && ok "always-on stanza in CLAUDE.md" || bad "stanza missing — re-run installer"
 else
     bad "no ~/.claude/skills (Claude Code not set up)"
@@ -32,7 +32,7 @@ fi
 say "Hermes:"
 if [ -d "$HOME/.hermes/skills/security" ]; then
     n=$(ls -1 "$HOME/.hermes/skills/security" 2>/dev/null | grep -cE '^(security-kit|red-team|attack-surface|exploit-verify|harden-stack|fuzz-harness|prod-debug|stealth-mode)$')
-    ok "$n/8 kit skills linked"; [ "$n" -lt 8 ] && bad "run: bash $KIT_ROOT/install/hermes.sh"
+    [ "$n" -eq 8 ] && ok "$n/8 kit skills linked" || bad "$n/8 kit skills linked — run: bash $KIT_ROOT/install/hermes.sh"
 else
     bad "no ~/.hermes/skills/security (Hermes not set up)"
 fi
