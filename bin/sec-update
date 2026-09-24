@@ -85,11 +85,11 @@ apply_changes() {   # $1 = TSV of changed rows
                 git -C "$KIT_ROOT" pull --ff-only --quiet || { echo "kit: pull failed"; continue; }
                 [ -n "$CLAUDE_BIN" ] && KIT_NO_PULL=1 bash "$KIT_ROOT/install/install.sh" >>"$LOG" 2>&1
                 have_hermes && KIT_NO_PULL=1 bash "$KIT_ROOT/install/hermes.sh" >>"$LOG" 2>&1
-                done_list+=("Security Kit $old→$new (skills, CLIs re-synced)") ;;
+                done_list+=("Security Kit ${old}→$new (skills, CLIs re-synced)") ;;
             upstream)
                 local d="$SEC_UPSTREAM/$(printf '%s' "$repo" | tr '/' '_')"
                 if [ -d "$d/.git" ] && git -C "$d" fetch --depth 1 --quiet origin HEAD >>"$LOG" 2>&1 && git -C "$d" reset --hard --quiet FETCH_HEAD; then
-                    done_list+=("technique skills $old→$new")
+                    done_list+=("technique skills ${old}→$new")
                 fi
                 have_hermes && hermes skills update >>"$LOG" 2>&1 ;;
         esac
