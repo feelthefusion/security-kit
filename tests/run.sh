@@ -13,6 +13,16 @@ echo "── bash syntax ──"
 for f in install/*.sh bin/* tests/run.sh; do
     if bash -n "$f" 2>/tmp/sherr; then ok "$f"; else bad "$f: $(cat /tmp/sherr)"; fi
 done
+# bash 3.2 in a UTF-8 locale treats high bytes as name chars: a $var glued to a non-ASCII char is an unbound variable under set -u
+utf_lint() {  # a function, not $(…): bash 3.2 misparses case patterns inside command substitution
+    local f
+    git ls-files | while read -r f; do
+        case "$f" in *.sh) ;; *) head -1 "$f" 2>/dev/null | grep -q bash || continue ;; esac
+        perl -ne 'print "$ARGV:$. " if /(?<!\\)\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]/' "$f"
+    done
+}
+utf="$(cd "$(dirname "$0")/.." && utf_lint)"
+[ -z "$utf" ] && ok "no \$var glued to a non-ASCII char (bash 3.2 + UTF-8 locale crash)" || bad "\$var followed by non-ASCII — write \${var}: $utf"
 
 echo "── kit skills ──"
 for s in security-kit red-team attack-surface exploit-verify harden-stack fuzz-harness prod-debug stealth-mode; do
