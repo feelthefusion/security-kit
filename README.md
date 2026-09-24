@@ -36,7 +36,7 @@ Every skill is one vulnerability class: source-to-sink taint adjudication, race-
 
 **→ Marketing Kit**: `red-team` and `attack-surface` specifically target the lifecycle-engine attack surface (Resend webhooks, Telnyx callbacks, outbox worker, CRM DB, partner payout logic). `exploit-verify` tests race conditions on credits, commissions, and idempotency. `stea**→ Every push (automatic)**: `sec-init` installs a `pre-push` hook (`sec-review`). Before anything leaves your machine, Claude Code runs headless on your Pro/Max plan with Anthropic's own `/security-review` instructions (fetched live), over exactly the commits being pushed and with read-only tools. A HIGH finding blocks the push, and each diff is reviewed once (cached). Skip once: `SEC_REVIEW=off git push`. If Claude Code is signed out, the review is skipped visibly and never blocks.
 
-**→ Pull requests (optional)**: `sec-init` seeds `.github/workflows/security-review.yml`, Anthropic's `claude-code-action` on the same plan through an OAuth token. It's skipped (grey, never red) until the secret exists. One time per repo: `claude setup-token`, then `gh secret set CLAUDE_CODE_OAUTH_TOKEN`.: `/security-review` inside Claude Code.
+**→ No token needed**: the review runs on this machine with your Claude Code sign-in on every push (pre-push `sec-review`), including direct pushes to `main`. There is no GitHub Actions review workflow and no `CLAUDE_CODE_OAUTH_TOKEN`; `sec-init` removes the old kit-seeded `security-review.yml`. Ad hoc: `/security-review` inside Claude Code.
 
 ## Freedom-first
 - **No legal/compliance text of the kit's own.** No T&Cs, no policies, no disclaimers, no gatekeeping. Released under the Unlicense (public domain).
