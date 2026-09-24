@@ -72,8 +72,8 @@ if git rev-parse --git-dir >/dev/null 2>&1; then
     grep -q 'security-kit: sec-review' "$(git rev-parse --git-path hooks)/pre-push" 2>/dev/null \
         && ok "this repo: pre-push review hook" || say "  · this repo: no pre-push review hook — run: sec-init (or sec-review --install-hook)"
 fi
-say "  · PR review (optional): .github/workflows/security-review.yml — skipped until the CLAUDE_CODE_OAUTH_TOKEN secret exists"
-say "    one time per repo: claude setup-token   then: gh secret set CLAUDE_CODE_OAUTH_TOKEN"
+[ -f .github/workflows/security-review.yml ] && grep -q 'needs.gate.outputs.enabled' .github/workflows/security-review.yml 2>/dev/null \
+    && say "  · this repo: retired PR-review workflow still present — run sec-init to remove it (reviews run locally on push)"
 say "auto-update (self + every skill):"
 claude_hook=0; hermes_hook=0
 grep -q "sec-update" "$HOME/.claude/settings.json" 2>/dev/null && claude_hook=1

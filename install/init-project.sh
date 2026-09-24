@@ -218,34 +218,21 @@ else
     echo "  · no verify.sh (Skill Starter Kit gate) — regression tests run separately"
 fi
 
-# --- GitHub webhook receiver + AI PR review -------------------------------------------------
+# --- GitHub webhook receiver -------------------------------------------------
 if git remote get-url origin 2>/dev/null | grep -q "github.com"; then
     KIT_SLUG="$(git -C "$KIT_ROOT" remote get-url origin 2>/dev/null | sed -E 's#(git@github.com:|https://github.com/)##; s#\.git$##')"
     mkdir -p .github/workflows
     sed "s#__KIT_REPO__#${KIT_SLUG:-feelthefusion/security-kit}#" "$KIT_ROOT/templates/github/security-kit-sync.yml" > .github/workflows/security-kit-sync.yml
     echo "  · .github/workflows/security-kit-sync.yml (webhook receiver) ✓"
-    # AI PR review on the Claude subscription (claude-code-action + CLAUDE_CODE_OAUTH_TOKEN) —
-    # seeded once, editable. Skipped (never red) until the secret exists. The kit's previous
-    # API-key template (claude-code-security-review + CLAUDE_API_KEY, invalid `secrets` in a
-    # job-level if) is replaced automatically; any other existing file is kept.
+    # Security review runs LOCALLY on every push (pre-push `sec-review`, your Claude Code sign-in) —
+    # no GitHub secret, no token. The kit's old PR-review workflow (claude-code-action +
+    # CLAUDE_CODE_OAUTH_TOKEN, or the older CLAUDE_API_KEY one) is retired: remove a kit-seeded copy;
+    # a workflow of the same name that isn't the kit's is kept.
     SR=.github/workflows/security-review.yml
-    if [ ! -f "$SR" ]; then
-        cp "$KIT_ROOT/templates/github/security-review.yml" "$SR"
-        echo "  · $SR (AI PR review on your Claude plan) ✓"
-    elif grep -q 'claude-code-security-review' "$SR" && grep -q 'CLAUDE_API_KEY' "$SR"; then
-        cp "$KIT_ROOT/templates/github/security-review.yml" "$SR"
-        echo "  · $SR: replaced the old API-key template with the Claude-plan one ✓"
-    else
-        echo "  · $SR exists (kept — editable) ✓"
-    fi
-    if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-        if printf '%s' "$CLAUDE_CODE_OAUTH_TOKEN" | gh secret set CLAUDE_CODE_OAUTH_TOKEN >/dev/null 2>&1; then
-            echo "  · CLAUDE_CODE_OAUTH_TOKEN secret auto-set from env — PR review is LIVE ✓"
-        else
-            echo "  ⚠ gh secret set failed — run: gh secret set CLAUDE_CODE_OAUTH_TOKEN"
-        fi
-    else
-        echo "    PR review (optional, one time): claude setup-token   then: gh secret set CLAUDE_CODE_OAUTH_TOKEN"
+    if [ -f "$SR" ] && { { grep -q 'CLAUDE_CODE_OAUTH_TOKEN' "$SR" && grep -q 'needs.gate.outputs.enabled' "$SR"; } \
+                         || { grep -q 'claude-code-security-review' "$SR" && grep -q 'CLAUDE_API_KEY' "$SR"; }; }; then
+        rm -f "$SR"
+        echo "  · $SR removed (retired — every push is reviewed locally, no token needed) ✓"
     fi
 fi
 

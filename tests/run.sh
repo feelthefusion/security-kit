@@ -46,21 +46,19 @@ done
 grep -q "one owner per job" skills/security-kit/SKILL.md && ok "ownership map present in security-kit" || bad "security-kit missing ownership map"
 
 echo "── templates & CLIs ──"
-for f in templates/robots.txt templates/crawler-blocklist.txt templates/stealth-headers.md templates/github/security-kit-sync.yml templates/github/security-review.yml bin/sec-doctor bin/sec-review bin/sec-update bin/sec-settings install/init-project.sh; do
+for f in templates/robots.txt templates/crawler-blocklist.txt templates/stealth-headers.md templates/github/security-kit-sync.yml bin/sec-doctor bin/sec-review bin/sec-update bin/sec-settings install/init-project.sh; do
     [ -f "$f" ] && ok "$f" || bad "$f missing"
 done
 grep -q "Disallow: /" templates/robots.txt && ok "robots.txt blocks all" || bad "robots.txt missing Disallow"
 grep -q "GPTBot" templates/crawler-blocklist.txt && ok "crawler blocklist has AI crawlers" || bad "crawler blocklist missing GPTBot"
-# PR review workflow: Claude plan (OAuth token, no API key), secret-gated via a gate job
-# (`secrets` isn't allowed in a job-level if), actions pinned to a commit (zizmor)
-grep -q "anthropics/claude-code-action@[0-9a-f]\{40\}" templates/github/security-review.yml && ok "security-review.yml: official claude-code-action, hash-pinned" || bad "security-review.yml action not hash-pinned"
-grep -q "claude_code_oauth_token: \${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}" templates/github/security-review.yml && ok "security-review.yml runs on the Claude plan (OAuth token)" || bad "security-review.yml not on the OAuth token"
-grep -q "needs.gate.outputs.enabled == 'true'" templates/github/security-review.yml && ok "security-review.yml secret-gated via gate job" || bad "security-review.yml not gated"
+# no token anywhere: review runs locally (pre-push sec-review on the Claude Code sign-in)
+[ ! -f templates/github/security-review.yml ] && ok "no PR-review workflow template (retired)" || bad "retired security-review.yml template still shipped"
+! grep -rqE "gh secret set CLAUDE_CODE_OAUTH_TOKEN|claude setup-token|secrets\.CLAUDE_CODE_OAUTH_TOKEN" install bin templates README.md && ok "nothing asks for a CLAUDE_CODE_OAUTH_TOKEN" || bad "OAuth-token setup still referenced"
 ! grep -qE "CLAUDE_API_KEY|anthropic_api_key|if: \\$\\{\\{ *secrets\." templates/github/*.yml && ok "no API key and no secrets-in-if anywhere in the templates" || bad "API key or secrets-in-if left in templates"
 ! grep -qE "uses: [^@]+@v[0-9]" templates/github/*.yml && ok "every template action is hash-pinned" || bad "unpinned action in templates"
 # one-command install: bootstrap must default to both hosts, no flag required
 grep -q 'TARGET="${1:-both}"' install/bootstrap.sh && ok "bootstrap defaults to both hosts" || bad "bootstrap not defaulting to both"
-grep -q "gh secret set CLAUDE_CODE_OAUTH_TOKEN" install/init-project.sh && ok "sec-init auto-sets CLAUDE_CODE_OAUTH_TOKEN from env" || bad "sec-init missing auto-secret-set"
+grep -q 'removed (retired' install/init-project.sh && ok "sec-init removes a kit-seeded PR-review workflow" || bad "sec-init does not retire the PR-review workflow"
 grep -q 'sec-review" --install-hook' install/init-project.sh && ok "sec-init installs the pre-push review hook" || bad "sec-init missing the pre-push hook"
 
 echo "── sec-review (automatic push review, stub claude) ──"
