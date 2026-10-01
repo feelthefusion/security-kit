@@ -81,7 +81,12 @@ review_range() {  # $1 base (may be empty), $2 head → 0 = pass/skip, 1 = block
         echo "SECURITY-REVIEW: BLOCK <count>     (<count> HIGH severity findings)"
     } > "$prompt"
     say "▶ security review of $(git diff --name-only "$base" "$head" -- . "${EXCLUDES[@]}" | wc -l | tr -d ' ') file(s) on your Claude plan — a few minutes (Ctrl-C cancels the push)"
+    # Model: explicit and overridable. Previously unpinned, so the review inherited the
+    # session default (Opus) and competed with the main session for Opus capacity — a
+    # large part of why pushes felt slow. Sonnet reviews the same diff far quicker;
+    # override per-run with SEC_REVIEW_MODEL=opus when a change deserves the deep pass.
     ( cd "$top" && exec env -u CLAUDECODE "$CLAUDE_BIN" -p --output-format text \
+        --model "${SEC_REVIEW_MODEL:-sonnet}" \
         --allowedTools "Read,Grep,Glob,LS,Task,Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git status:*)" \
         --disallowedTools "Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch" \
         < "$prompt" > "$out" 2> "$out.err" ) &
