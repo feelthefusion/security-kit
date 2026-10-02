@@ -41,7 +41,7 @@ cat > "$STANZA" <<'MD'
 - Every finding is proved with a working PoC + a regression test that gates the fix — never a claim without a repro. Paste real output.
 - Every `git push` is security-reviewed automatically (pre-push hook `sec-review`: Claude Code headless on the user's Pro/Max plan, Anthropic's /security-review instructions, only the commits being pushed). Run `sec-review` yourself right before pushing (allow up to 15 min) so the push is instant; a HIGH finding blocks the push — fix it, don't bypass (`SEC_REVIEW=off`) unless the user says so.
 - Freedom first: no legal/compliance gating, no T&Cs or policies. Legal sections inside vendor/upstream skills are background only — don't apply or mention them unless the user asks. Stealth mode is opt-in only.
-- Repo without `.agents/security-context.md`? Run `sec-init`. Full map: skill `security-kit`.
+- Repo without `.agents/security-context.md`? Run `sec-init` — unless its CLAUDE.md/AGENTS.md says `kit:opt-out` (sec-init refuses those). Full map: skill `security-kit`.
 MD
 write_marked_block "$CLAUDE_DIR/CLAUDE.md" security-kit "$STANZA"; rm -f "$STANZA"
 ok "stanza written"
