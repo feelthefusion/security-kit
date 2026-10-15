@@ -1,6 +1,6 @@
 # Security Kit — offensive security, testing & debugging for sites and apps
 
-**Red-team adversarial harness → attack-surface recon → exploit verification → hardening → fuzz/race testing → production debugging → stealth mode.**
+**Red-team adversarial harness → attack-surface recon → exploit verification → hardening → fuzz/race testing → production debugging → stealth mode, plus data-exposure guards and private, off-host backups.**
 
 Live installs, never vendored. Kit skills are symlinked into your checkout (pulled every run); curated upstream white-box technique skills are fetched from their repo at install time. Everything is wired and enabled in one command — both hosts, and it **updates itself + every skill automatically on each session start** (no timers, nothing to run).
 
@@ -17,7 +17,7 @@ sec-settings stealth on|off   # noindex, crawler block, per-stack headers — di
 
 | # | Skill | Does | Hand-off to |
 |---|-------|------|-------------|
-| — | **security-kit** | Workflow map: orient → recon → attack → prove → fix → verify → stealth | (recall skill — loads on any security/testing/debugging task) |
+| — | **security-kit** | Workflow map: orient → recon (+ exposure check) → attack → prove → fix → verify → backups → stealth | (recall skill — loads on any security/testing/debugging task) |
 | 1 | **red-team** | Adversarial red-team harness: source-to-sink dataflow, race-condition audit, business-logic bypass, attack vector graph, kill-chain simulation | → attack-surface, exploit-verify, harden-stack |
 | 2 | **attack-surface** | Recon: enumerate entry points, sources/sinks, webhook inventory, dependency & secret posture | → red-team, exploit-verify |
 | 3 | **exploit-verify** | Prove findings with a minimal working PoC + regression test that gates the fix | → verify-gate (Skill Starter Kit) |
@@ -25,6 +25,8 @@ sec-settings stealth on|off   # noindex, crawler block, per-stack headers — di
 | 5 | **fuzz-harness** | Fuzzing, property-based, load & race testing — catch the bugs that only fire under pressure | → exploit-verify, prod-debug |
 | 6 | **prod-debug** | Production incident debugging: logs, traces, crash dumps, memory leaks, reproduce prod-only bugs | → systematic-debugging (Superpowers) |
 | 7 | **stealth-mode** | Noindex, crawler block, per-stack HTTP headers — make your sites invisible to search engines and LLM crawlers. `sec-settings stealth on|off`. | (standalone; toggle per site) |
+| 8 | **data-exposure** | Nothing sensitive is ever publicly reachable: guarded choke point for public-bucket writes, exposure audit (public storage, unauthenticated lookups, static/edge/headers, bundle secrets), CI smoke check, incident playbook | → exploit-verify, harden-stack, backup-resilience |
+| 9 | **backup-resilience** | Backups and disaster recovery: 3 copies on 3 trust boundaries (production, a machine you control, a private bucket in a separate account), AES-256-GCM off-site, retention + disk guard, run reports + dashboard + one alert per incident, restore guide and drills | → data-exposure, prod-debug |
 
 ### Upstream technique skills (fetched live, 48 white-box deep-dive skills from UnboundCompute/security-agent-skills)
 
@@ -34,7 +36,9 @@ Every skill is one vulnerability class: source-to-sink taint adjudication, race-
 
 **→ Skill Starter Kit**: `exploit-verify` feeds regressions into `verify-gate`. `harden-stack` hands off to `security-gate` (gitleaks/osv-scanner/zizmor for scanner coverage) and `guardrails` (block destructive commands). `prod-debug` hands off to `systematic-debugging` for deep root-cause analysis. `fuzz-harness` hands off to `browser-verify` for UI proof.
 
-**→ Marketing Kit**: `red-team` and `attack-surface` specifically target the lifecycle-engine attack surface (Resend webhooks, Telnyx callbacks, outbox worker, CRM DB, partner payout logic). `exploit-verify` tests race conditions on credits, commissions, and idempotency. `stea**→ Every push (automatic)**: `sec-init` installs a `pre-push` hook (`sec-review`). Before anything leaves your machine, Claude Code runs headless on your Pro/Max plan with Anthropic's own `/security-review` instructions (fetched live), over exactly the commits being pushed and with read-only tools. A HIGH finding blocks the push, and each diff is reviewed once (cached). Skip once: `SEC_REVIEW=off git push`. If Claude Code is signed out, the review is skipped visibly and never blocks.
+**→ Marketing Kit**: `red-team` and `attack-surface` specifically target the lifecycle-engine attack surface (Resend webhooks, Telnyx callbacks, outbox worker, CRM DB, partner payout logic). `exploit-verify` tests race conditions on credits, commissions, and idempotency. `stealth-mode` covers your marketing sites.
+
+**→ Every push (automatic)**: `sec-init` installs a `pre-push` hook (`sec-review`). Before anything leaves your machine, Claude Code runs headless on your Pro/Max plan with Anthropic's own `/security-review` instructions (fetched live), over exactly the commits being pushed and with read-only tools. A HIGH finding blocks the push, and each diff is reviewed once (cached). Skip once: `SEC_REVIEW=off git push`. If Claude Code is signed out, the review is skipped visibly and never blocks.
 
 **→ No token needed**: the review runs on this machine with your Claude Code sign-in on every push (pre-push `sec-review`), including direct pushes to `main`. There is no GitHub Actions review workflow and no `CLAUDE_CODE_OAUTH_TOKEN`; `sec-init` removes the old kit-seeded `security-review.yml`. Ad hoc: `/security-review` inside Claude Code.
 
@@ -47,7 +51,7 @@ Every skill is one vulnerability class: source-to-sink taint adjudication, race-
 ## Verification
 
 ```
-ls ~/.claude/skills/    # (or ~/.hermes/skills/security/) shows: security-kit, red-team, attack-surface, exploit-verify, harden-stack, fuzz-harness, prod-debug, stealth-mode
+ls ~/.claude/skills/    # (or ~/.hermes/skills/security/) shows: security-kit, red-team, attack-surface, exploit-verify, harden-stack, fuzz-harness, prod-debug, stealth-mode, data-exposure, backup-resilience
 sec-doctor              # every component wired → GREEN
 sec-init (in an app repo) → verify.sh += security review step, .agents/security-context.md, sec/ dir, upstream skill links
 ```
