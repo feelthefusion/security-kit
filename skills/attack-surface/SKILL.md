@@ -37,8 +37,9 @@ For every entry point classified above:
 
 - Dependencies (package.json, requirements.txt, Gemfile, Cargo.toml) — version, age, known CVEs.
   Hand-off to the Skill Starter Kit's `security-gate` for `osv-scanner` + CVE database.
-- Secrets in client bundles (Vite/Next.js/webpack `import.meta.env`, Expo `app.config.js`,
-  public env vars) — any that would be leaked in a JS bundle or mobile binary.
+- Secrets in client bundles, public buckets, static paths and unauthenticated responses: hand
+  off to `data-exposure`, which owns the bundle secret grep and the exposure audit. Give it this
+  skill's route list so it does not re-map routes.
 - CI/CD secrets reachable from the repo (workflow_dispatch, PR workflows from forks, untrusted
   action pins) — hand-off to `zizmor` via security-gate.
 
@@ -55,10 +56,13 @@ Output a table, ranked by risk (blast radius × ease of exploitation):
 Every row becomes a `red-team` target. The `red-team` attack-vector graphs live in
 `sec/attacks/<id>/`, keyed from this table's row number.
 
-Record findings in `sec/threats/recon-YYYY-MM-DD.md`.
+Record findings in `sec/threats/recon-YYYY-MM-DD.md`. `data-exposure` reads this route list for
+its exposure check (step 2 of the workflow map), so keep every route, host and storage proxy in it.
 
 ## Works with →
 - **red-team** → attacks each lead with the adversarial protocol.
 - **exploit-verify** → proves findings.
 - **harden-stack** → fixes them.
+- **data-exposure** → the exposure check in the same recon pass: public storage, bundle secrets,
+  same-site HTML/SVG, `%2F` proxy paths, origin bypass. It works from this skill's route list.
 - Upstream `mapping-attack-surface`, `hunting-broken-object-level-authorization`, `auditing-webhook-authenticity-and-callback-trust`.

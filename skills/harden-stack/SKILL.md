@@ -67,5 +67,7 @@ The `exploit-verify` regression must flip from RED to GREEN with this fix. Paste
 ## Works with →
 - **exploit-verify** → the regression proving the fix.
 - **red-team** → re-run the attack-vector graph to confirm the class (not just the instance) is gone.
+- **data-exposure** → the public-write allowlist guard, origin lock and proxy validation it asks for.
+- **backup-resilience** → the backup report endpoint's token auth, kill switch and fail-closed defaults.
 - Skill Starter Kit **security-gate** (`gitleaks` for secrets, `osv-scanner` for CVE, `zizmor` for CI) + **guardrails** (block destructive commands).
 - Upstream `finding-fail-open-flaws`, `auditing-guard-gaps`, `finding-crypto-misuse`.

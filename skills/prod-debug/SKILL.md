@@ -1,6 +1,6 @@
 ---
 name: prod-debug
-description: "Debug in production — incidents, crashes, memory leaks, race conditions that only reproduce under real traffic. Use for 'debug this production bug', 'investigate this crash', 'trace this leaked secret', or any issue where the dev environment doesn't reproduce the problem. Complements systematic-debugging (code-level root cause) with runtime/observability depth."
+description: "Debug in production: incidents, crashes, memory leaks, race conditions that only reproduce under real traffic. Use for 'debug this production bug', 'investigate this crash', or any issue where the dev environment doesn't reproduce the problem. Complements systematic-debugging (code-level root cause) with runtime/observability depth. A leaked secret or exposed data is a data-exposure incident: that skill owns it, prod-debug only supplies log evidence."
 ---
 
 # Production debugging — runtime is the truth
@@ -42,19 +42,23 @@ Before any theory, lock in the facts:
    approximation). `fuzz-harness` to stress the fix.
 4. **Ship** — enable the fix, monitor the metric; confirm the crash/leak rate drops.
 
-## 4. Secrets / credential leaks (production)
+## 4. Secrets / credential leaks and exposed data: hand off to `data-exposure`
 
-If a secret leaked in a log/memory dump/client bundle:
-1. Rotate it immediately (the kit can't rotate it for you — use AWS Secrets Manager / Railway
-   env / 1Password CLI — but the skill tells you to do it first).
-2. Find where it leaked: grep logs, scan client bundles (`sec-settings stealth on` header doesn't
-   help here — this is about accidental exposure).
-3. `harden-stack` to prevent recurrence (error insulation, no secrets in env vars pushed to
-   logs, no `console.log(process.env)` equivalents).
+A secret in a log, memory dump, error body or client bundle, or private data on a public URL, is
+not debugged here. Load `data-exposure` and follow its INCIDENT playbook: it is the one owner
+(rotate a leaked live credential first, then preserve, remove and confirm 404, check logs,
+notify, regression guard). Do not run a separate rotate-and-stop sequence from this skill.
+
+What prod-debug contributes when the playbook asks for it: the runtime evidence. Which log lines,
+requests, builds or dumps contained the secret or served the data, the time window, and any gap
+in log coverage. Never paste a secret value into notes or tickets.
 
 ## Works with →
 - Superpowers **systematic-debugging** → hypothesis generation, bisection, root-cause.
 - **fuzz-harness** → model the race/load conditions.
 - **exploit-verify** → regression test.
 - **harden-stack** → fix.
+- **data-exposure** → owns leaked secrets and exposed data (its incident playbook); prod-debug
+  supplies the log evidence.
+- **backup-resilience** → an outage, ban or lost host is recovered from its restore guide.
 - Skill Starter Kit **browser-verify** → screenshot/DevTools for frontend production bugs.

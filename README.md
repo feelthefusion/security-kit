@@ -17,16 +17,16 @@ sec-settings stealth on|off   # noindex, crawler block, per-stack headers — di
 
 | # | Skill | Does | Hand-off to |
 |---|-------|------|-------------|
-| — | **security-kit** | Workflow map: orient → recon (+ exposure check) → attack → prove → fix → verify → backups → stealth | (recall skill — loads on any security/testing/debugging task) |
+| · | **security-kit** | Workflow map: orient → recon (+ exposure check) → attack → prove → fix → verify → backups → stealth | (recall skill: loads on any security/testing/debugging task) |
 | 1 | **red-team** | Adversarial red-team harness: source-to-sink dataflow, race-condition audit, business-logic bypass, attack vector graph, kill-chain simulation | → attack-surface, exploit-verify, harden-stack |
-| 2 | **attack-surface** | Recon: enumerate entry points, sources/sinks, webhook inventory, dependency & secret posture | → red-team, exploit-verify |
+| 2 | **attack-surface** | Recon: enumerate entry points, sources/sinks, webhook inventory, dependency posture; bundle secrets and public storage go to data-exposure | → red-team, exploit-verify, data-exposure |
 | 3 | **exploit-verify** | Prove findings with a minimal working PoC + regression test that gates the fix | → verify-gate (Skill Starter Kit) |
 | 4 | **harden-stack** | Defense-in-depth fixes: parameterised queries, auth/session hardening, headers/CORS/CSRF, webhook signature verification, rate/race guards | → verify-gate, deploy-harden |
 | 5 | **fuzz-harness** | Fuzzing, property-based, load & race testing — catch the bugs that only fire under pressure | → exploit-verify, prod-debug |
 | 6 | **prod-debug** | Production incident debugging: logs, traces, crash dumps, memory leaks, reproduce prod-only bugs | → systematic-debugging (Superpowers) |
 | 7 | **stealth-mode** | Noindex, crawler block, per-stack HTTP headers — make your sites invisible to search engines and LLM crawlers. `sec-settings stealth on|off`. | (standalone; toggle per site) |
-| 8 | **data-exposure** | Nothing sensitive is ever publicly reachable: guarded choke point for public-bucket writes, exposure audit (public storage, unauthenticated lookups, static/edge/headers, bundle secrets), CI smoke check, incident playbook | → exploit-verify, harden-stack, backup-resilience |
-| 9 | **backup-resilience** | Backups and disaster recovery: 3 copies on 3 trust boundaries (production, a machine you control, a private bucket in a separate account), AES-256-GCM off-site, retention + disk guard, run reports + dashboard + one alert per incident, restore guide and drills | → data-exposure, prod-debug |
+| 8 | **data-exposure** | Nothing sensitive is ever publicly reachable: allowlist choke point for public-bucket writes (prefix x extension x content type), exposure audit (public storage, same-site HTML/SVG, `%2F` proxy paths, origin bypass, unauthenticated lookups, bundle secrets), CI smoke check, one incident playbook for exposed data and leaked secrets | → exploit-verify, harden-stack, backup-resilience |
+| 9 | **backup-resilience** | Backups and disaster recovery: 3 copies on 3 trust boundaries (production, an encrypted machine you control kept out of cloud sync, a private bucket in a separate account), AES-256-GCM off-site written with a write-only credential and pruned only by lifecycle rules or a separate credential, retention + disk guard, run reports + dashboard + one alert per incident, restore guide and drills | → data-exposure, prod-debug |
 
 ### Upstream technique skills (fetched live, 48 white-box deep-dive skills from UnboundCompute/security-agent-skills)
 

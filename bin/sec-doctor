@@ -8,9 +8,22 @@ KIT_ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
 SEC_BIN="$HOME/.local/bin"
 SEC_UPSTREAM="${SEC_UPSTREAM:-${XDG_DATA_HOME:-$HOME/.local/share}/security-kit/upstream}"
 SEC_CONF="$HOME/.config/security-kit"
+# One list of kit skills: install/lib.sh. Read, not sourced (lib.sh redefines say/ok/bad).
+KIT_SKILLS="$(sed -n 's/^KIT_SKILLS="\(.*\)"$/\1/p' "$KIT_ROOT/install/lib.sh" 2>/dev/null)"
+NK=$(echo $KIT_SKILLS | wc -w | tr -d ' ')
 say() { printf '%s\n' "$*"; }
 bad() { printf '  ✗ %s\n' "$*"; }
 ok()  { printf '  · %s ✓\n' "$*"; }
+# check_kit_skills <skills dir> <installer>: every KIT_SKILLS entry linked, by name
+check_kit_skills() {
+    local dir="$1" installer="$2" k n=0 miss=""
+    [ "$NK" -gt 0 ] || { bad "cannot read KIT_SKILLS from $KIT_ROOT/install/lib.sh"; return; }
+    for k in $KIT_SKILLS; do
+        if [ -f "$dir/$k/SKILL.md" ]; then n=$((n+1)); else miss="$miss $k"; fi
+    done
+    if [ -z "$miss" ]; then ok "$n/$NK kit skills linked"
+    else bad "$n/$NK kit skills linked, missing:$miss. Run: bash $KIT_ROOT/install/$installer"; fi
+}
 
 say "── Security Kit · doctor ───────────────────────────────"
 say "kit checkout: $KIT_ROOT ($(git -C "$KIT_ROOT" rev-parse --short HEAD 2>/dev/null || echo 'not git'))"
@@ -22,8 +35,7 @@ done
 
 say "Claude Code:"
 if [ -d "$HOME/.claude/skills" ]; then
-    n=$(ls -1 "$HOME/.claude/skills" 2>/dev/null | grep -cE '^(security-kit|red-team|attack-surface|exploit-verify|harden-stack|fuzz-harness|prod-debug|stealth-mode|data-exposure|backup-resilience)$')
-    [ "$n" -eq 10 ] && ok "$n/10 kit skills linked" || bad "$n/10 kit skills linked — run: bash $KIT_ROOT/install/install.sh"
+    check_kit_skills "$HOME/.claude/skills" install.sh
     grep -q 'security-kit:start' "$HOME/.claude/CLAUDE.md" 2>/dev/null && ok "always-on stanza in CLAUDE.md" || bad "stanza missing — re-run installer"
 else
     bad "no ~/.claude/skills (Claude Code not set up)"
@@ -31,8 +43,7 @@ fi
 
 say "Hermes:"
 if [ -d "$HOME/.hermes/skills/security" ]; then
-    n=$(ls -1 "$HOME/.hermes/skills/security" 2>/dev/null | grep -cE '^(security-kit|red-team|attack-surface|exploit-verify|harden-stack|fuzz-harness|prod-debug|stealth-mode|data-exposure|backup-resilience)$')
-    [ "$n" -eq 10 ] && ok "$n/10 kit skills linked" || bad "$n/10 kit skills linked — run: bash $KIT_ROOT/install/hermes.sh"
+    check_kit_skills "$HOME/.hermes/skills/security" hermes.sh
 else
     bad "no ~/.hermes/skills/security (Hermes not set up)"
 fi
