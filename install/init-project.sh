@@ -134,8 +134,8 @@ print(f"""# Security context — {os.path.basename(root)}
 - [ ] Rate limits on every auth and webhook route
 - [ ] CSP + CORS explicitly set (not wildcard with credentials)
 - [ ] Logs: every auth attempt, webhook arrival, payment state change, secret access
-- [ ] Public buckets/CDN hold public content only; one guarded choke point for public writes; CI smoke check proves must-be-private URLs 404 (data-exposure)
-- [ ] Backups: 3 copies on 3 trust boundaries, off-site encrypted in a separate account, freshness monitored, restore drill passed (backup-resilience)
+- [ ] Public buckets/CDN hold public content only; one allowlist choke point for public writes; no HTML/SVG on a same-site host; origin locked to the CDN; CI smoke check proves must-be-private URLs 404 (data-exposure)
+- [ ] Backups: 3 copies on 3 trust boundaries, off-site encrypted in a separate account and written with a write-only credential, local disk encrypted and out of cloud sync, freshness monitored, restore drill passed (backup-resilience)
 """)
 PY
     echo "  · .agents/security-context.md drafted — fill the ? lines and Y/Ns ✓"
@@ -155,7 +155,7 @@ BLOCK="$(mktemp)"
 cat > "$BLOCK" <<'MD'
 ## Security Kit
 - Security context: `.agents/security-context.md` (threat model, routes, auth, channels, checklist). Read it before any security, testing or debugging task.
-- Loop: skill `security-kit` → orient → recon (`attack-surface`) → attack (`red-team`) → prove (`exploit-verify`) → fix (`harden-stack`) → verify (Skill Starter Kit `verify.sh`) → stealth (`sec-settings stealth on` when needed).
+- Loop: skill `security-kit` → orient → recon (`attack-surface`) + exposure check (`data-exposure`) → attack (`red-team`) → prove (`exploit-verify`) → fix (`harden-stack`) → verify (Skill Starter Kit `verify.sh`) → backups (`backup-resilience`) → stealth (`sec-settings stealth on` when needed).
 - Nothing sensitive is ever public (`data-exposure`); backups are private, encrypted and off-host (`backup-resilience`).
 - Zero trust: every user input is malicious, every dependency is compromised. Source-to-sink before you trust code; race condition and business-logic order before you trust a flow.
 - Every finding is proved with a PoC + regression test — never a claim without a repro. Findings go in `sec/attacks/<id>/`; regressions go in `sec/regressions/`.
