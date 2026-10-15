@@ -64,6 +64,6 @@ fi
 write_kit_version "$KIT_ROOT" "$HH"
 say "─── done ───────────────────────────────────────────────"
 say "✓ Everything is enabled — no manual steps."
-say "  · 8 kit skills + 48 technique skills, linked live (never copied)"
+say "  · 10 kit skills + 48 technique skills, linked live (never copied)"
 say "  · auto-updates itself + every skill on each session start (no timers, nothing to run)"
 say "  · start a new Hermes session, then:  sec-doctor   ·   in each app repo:  sec-init"
