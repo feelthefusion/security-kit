@@ -14,7 +14,7 @@
 
 SEC_BIN="$HOME/.local/bin"
 SEC_CONF="$HOME/.config/security-kit"
-KIT_SKILLS="security-kit red-team attack-surface exploit-verify harden-stack fuzz-harness prod-debug stealth-mode"
+KIT_SKILLS="security-kit red-team attack-surface exploit-verify harden-stack fuzz-harness prod-debug stealth-mode data-exposure backup-resilience"
 SEC_UPSTREAM="${SEC_UPSTREAM:-${XDG_DATA_HOME:-$HOME/.local/share}/security-kit/upstream}"
 
 say()  { printf '%s\n' "$*"; }

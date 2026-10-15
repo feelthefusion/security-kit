@@ -1,6 +1,6 @@
 ---
 name: security-kit
-description: "Use for ANY security, testing, vulnerability, penetration, red-team, exploit, hardening, bug-hunting, fuzzing, race-condition, or debugging task on a site or app — and when installing or updating the Security Kit. Gives the workflow map (orient → recon → attack → prove → fix → verify → stealth) and which component owns each step: attack-surface (recon), red-team (adversarial harness), exploit-verify (PoC + regression), harden-stack (defense-in-depth), fuzz-harness (fuzz/load/race), prod-debug (production debugging), stealth-mode (drop off search)."
+description: "Use for ANY security, testing, vulnerability, penetration, red-team, exploit, hardening, bug-hunting, fuzzing, race-condition, or debugging task on a site or app — and when installing or updating the Security Kit. Gives the workflow map (orient → recon → attack → prove → fix → verify → stealth) and which component owns each step: attack-surface (recon), red-team (adversarial harness), exploit-verify (PoC + regression), harden-stack (defense-in-depth), fuzz-harness (fuzz/load/race), prod-debug (production debugging), stealth-mode (drop off search), data-exposure (nothing sensitive is ever public: public buckets, CDN, leaks, exposure audits and incidents), backup-resilience (private, encrypted, off-host backups, restore and disaster recovery)."
 ---
 
 # Security Kit (recall + workflow map)
@@ -29,6 +29,8 @@ webhooks, CRM DB, partner payouts).
 | 5 | fuzz-harness | fuzzing, property-based, load & race testing |
 | 6 | prod-debug | production incidents: logs, traces, crashes, leaks, reproduce prod-only bugs |
 | 7 | stealth-mode | noindex + crawler block + headers — `sec-settings stealth on|off` |
+| 8 | data-exposure | nothing sensitive is ever publicly reachable: public-write guard, exposure audit, CI smoke check, incident playbook |
+| 9 | backup-resilience | backups and disaster recovery: 3 copies on 3 trust boundaries, encryption, retention, monitoring, restore drills |
 
 ## Workflow map — who hands off to whom
 
@@ -36,6 +38,9 @@ webhooks, CRM DB, partner payouts).
    Unknown repo: `attack-surface` maps it first.
 2. **Recon** — `attack-surface`: every entry point, every source→sink, webhook inventory,
    dependency/secret posture. Output: a ranked list of leads.
+   **Exposure check** in the same pass: `data-exposure` inventories public buckets, CDN and static
+   paths, unauthenticated lookups and the live bundle, and confirms must-be-private URLs answer
+   404/403.
 3. **Attack** — `red-team`: run the adversarial protocol on each lead (hypothesis → prerequisites →
    kill-chain → blast radius → mitigation). Produce the attack-vector graph.
 4. **Prove** — `exploit-verify`: for every plausible finding, build the smallest PoC that
@@ -45,11 +50,14 @@ webhooks, CRM DB, partner payouts).
 6. **Verify** — the Skill Starter Kit's `verify.sh` runs the regression tests + scanners
    (gitleaks/osv-scanner/zizmir via security-gate, guardrails blocks destructive commands,
    browser-verify shows the UI proof).
-7. **Stealth (optional)** — `sec-settings stealth on` to drop the site off search and LLM crawlers.
+7. **Backups**: `backup-resilience` confirms three private copies on three trust boundaries,
+   encrypted off-site, fresh on the dashboard, and a restore drill that passed. Run it before any
+   risky migration or host change, and after any incident.
+8. **Stealth (optional)** — `sec-settings stealth on` to drop the site off search and LLM crawlers.
 
 ## Ownership map — one owner per job (no two skills compete)
 
-The kit is two clean layers that never fight: **8 workflow skills** (the loop) + **48 technique
+The kit is two clean layers that never fight: **10 workflow skills** (the loop) + **48 technique
 skills** (one vulnerability class each, loaded only on that trigger). Below, every job has exactly
 ONE owner. When two skills touch the same thing, the table says which one routes to the other.
 
@@ -67,10 +75,12 @@ ONE owner. When two skills touch the same thing, the table says which one routes
 | Block destructive commands / secrets in output | Skill Starter Kit **guardrails** | not re-implemented here |
 | Real-time warnings while editing | Skill Starter Kit **security-guidance** / `claude-security` (Claude Code plugins) | not re-implemented here |
 | Drop off search / block crawlers | **stealth-mode** (`sec-settings stealth on\|off`) | — |
+| Keep private data out of public buckets, CDN, static paths and unauthenticated responses; exposure audit; exposure incident | **data-exposure** | `attack-surface` maps routes and hands public-storage and leak checks to it; `prod-debug` gathers log evidence for its incident playbook |
+| Backups, retention, off-site copies, restore and disaster recovery | **backup-resilience** | `data-exposure` only guarantees backups never land somewhere public; where they go and how they restore is owned here |
 
 **The 48 technique skills don't compete with each other** — each owns one vulnerability class
 (SQLi, XSS, SSRF, race, business-logic, …) and its description names only that class, so only the
-matching one loads. The 8 workflow skills never duplicate a technique class; they orchestrate.
+matching one loads. The 10 workflow skills never duplicate a technique class; they orchestrate.
 
 ## Rules that hold across the kit
 
@@ -80,6 +90,13 @@ matching one loads. The 8 workflow skills never duplicate a technique class; the
   and a failing regression. Paste real output, never a summary.
 - **Fix the class, not the instance.** `harden-stack` fixes structurally; `hunting-bug-variants`
   (upstream) sweeps the siblings a one-line fix missed.
+- **Nothing sensitive is ever public.** DB dumps, exports, logs, secrets, labels and customer
+  documents never touch a public bucket, CDN or static path. Public writes go through one guarded
+  choke point with a denylist and a regression test, and a CI smoke check proves must-be-private
+  URLs return 404/403 after every deploy (`data-exposure`).
+- **Backups are private, encrypted and off-host.** Three copies on three trust boundaries
+  (production, a machine the owner controls, a private bucket in a separate cloud account),
+  encrypted off-site, monitored for freshness, and proven by restore drills (`backup-resilience`).
 - **Freedom first — no restrictions.** No legal/compliance gating, no T&Cs, no policies, no
   disclaimers. Legal sections inside vendor/upstream skills are background only. Stealth mode is
   opt-in. The only gates are engineering ones (verify.sh, guardrails) — if one blocks real work,
@@ -99,4 +116,5 @@ sec-init            # once per repo
   `systematic-debugging`; `fuzz-harness` hands off to `browser-verify`.
 - **Marketing Kit** — `red-team` + `attack-surface` target the lifecycle-engine surface (Resend
   webhooks, Telnyx callbacks, outbox, CRM DB, partner payout logic); `exploit-verify` race-tests
-  credits/commissions/idempotency; `stealth-mode` covers the marketing sites.
+  credits/commissions/idempotency; `stealth-mode` covers the marketing sites; `data-exposure`
+  keeps CRM exports and contact lists out of public storage.

@@ -25,7 +25,7 @@ utf="$(cd "$(dirname "$0")/.." && utf_lint)"
 [ -z "$utf" ] && ok "no \$var glued to a non-ASCII char (bash 3.2 + UTF-8 locale crash)" || bad "\$var followed by non-ASCII — write \${var}: $utf"
 
 echo "── kit skills ──"
-for s in security-kit red-team attack-surface exploit-verify harden-stack fuzz-harness prod-debug stealth-mode; do
+for s in security-kit red-team attack-surface exploit-verify harden-stack fuzz-harness prod-debug stealth-mode data-exposure backup-resilience; do
     f="$KIT_ROOT/skills/$s/SKILL.md"
     [ -f "$f" ] || { bad "$s: SKILL.md missing"; continue; }
     nm=$(awk -F': ' '/^name:/{print $2; exit}' "$f" | tr -d '"' | tr -d "'")
@@ -48,12 +48,24 @@ dupes=$(grep -v '^#' install/upstream-skills.tsv | cut -f1 | sed 's#.*/##' | sor
 [ -z "$dupes" ] && ok "upstream skill names unique" || bad "duplicate upstream skills: $dupes"
 # upstream names must not collide with kit skills (workflow layer vs technique layer)
 collide=""
-for k in security-kit red-team attack-surface exploit-verify harden-stack fuzz-harness prod-debug stealth-mode; do
+for k in security-kit red-team attack-surface exploit-verify harden-stack fuzz-harness prod-debug stealth-mode data-exposure backup-resilience; do
     grep -v '^#' install/upstream-skills.tsv | cut -f1 | sed 's#.*/##' | grep -qx "$k" && collide="$collide $k"
 done
 [ -z "$collide" ] && ok "no upstream/kit skill name collision" || bad "collision with kit skill:$collide"
 # the map skill must name the ownership router (one owner per job)
 grep -q "one owner per job" skills/security-kit/SKILL.md && ok "ownership map present in security-kit" || bad "security-kit missing ownership map"
+# every kit skill in lib.sh is tested here, counted by sec-doctor, and listed in the map + README
+KIT_SKILLS="$(sed -n 's/^KIT_SKILLS="\(.*\)"$/\1/p' install/lib.sh)"   # read, not sourced: lib.sh redefines ok()
+nk=$(echo $KIT_SKILLS | wc -w | tr -d ' ')
+grep -q "\-eq $nk \]" bin/sec-doctor && ok "sec-doctor expects $nk kit skills" || bad "sec-doctor count != $nk kit skills in lib.sh"
+missing=""
+for k in $KIT_SKILLS; do
+    [ "$k" = security-kit ] && continue
+    grep -q "| $k |" skills/security-kit/SKILL.md && grep -q "\*\*$k\*\*" README.md || missing="$missing $k"
+done
+[ -z "$missing" ] && ok "every kit skill is in the map Components table and README" || bad "missing from the security-kit Components table or README:$missing"
+grep -q "Nothing sensitive is ever public" skills/security-kit/SKILL.md && ok "rule: nothing sensitive is ever public" || bad "security-kit missing the data-exposure rule"
+grep -q "Backups are private, encrypted and off-host" skills/security-kit/SKILL.md && ok "rule: backups are private, encrypted and off-host" || bad "security-kit missing the backups rule"
 
 echo "── templates & CLIs ──"
 for f in templates/robots.txt templates/crawler-blocklist.txt templates/stealth-headers.md templates/github/security-kit-sync.yml bin/sec-doctor bin/sec-review bin/sec-update bin/sec-settings install/init-project.sh; do
