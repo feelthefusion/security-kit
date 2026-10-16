@@ -144,9 +144,27 @@ and never prune because a run failed. Log every prune.
 - [ ] Heavy jobs run on a worker; local jobs use the OS scheduler with a lock
 - [ ] Kill switch env var works and defaults off when settings are missing
 - [ ] Every run reports to a token-protected endpoint; reporters require a JSON success body
-- [ ] Dashboard shows freshness per stream with thresholds; one alert per incident
+- [ ] Dashboard shows freshness per stream with thresholds; ANY problem alerts the admin by email AND text right away, one alert per problem, a 6-hour reminder, a recovery notice (section 8)
+- [ ] Public-bucket guard scan runs with each cloud backup; "Send test alert" button works; kill switch on raises an alert
 - [ ] Restore guides written; a restore drill into a scratch DB passed with row counts compared, monthly, and quarterly from the off-site copy
 - [ ] `data-exposure` smoke check confirms no dump is reachable on any public URL
+
+## 8. Backup rules (owner baseline)
+
+Short, non-negotiable rules for any site that follows this kit. No keys, hostnames or bucket
+credentials ever go in this file or in a repo.
+
+1. **Never in a public bucket.** Backups go to a private, encrypted bucket in a separate cloud account.
+2. **Three copies:** cloud database + settings + files hourly, a local-machine database copy hourly, and a file mirror every 15 minutes.
+3. **Retention:** 24 hourly, 30 daily, 12 monthly.
+4. **A deploy interruption resumes; it is not a failure.** A run cut short by a restart is marked interrupted, picked up again, and never alerts or counts as a failed run.
+5. **Any backup problem alerts the admin right away by email AND text.** Triggers: a failed run (any step, including upload and encryption), a failed local report, the public-bucket guard finding exposed files, the kill switch on while backups are expected, no good database copy for more than 75 minutes, the worker heartbeat missing for more than 15 minutes.
+   - Event-driven when a run or report finishes; the stale, kill-switch and heartbeat checks ride an existing scheduler tick (no new timers, no UI polling).
+   - One alert per distinct problem per incident, a reminder after 6 hours if still unfixed, and a short "Backups recovered" email and text when the last problem clears. Each alert is logged.
+   - A failing email or text sender never breaks a backup run, and one channel failing never blocks the other.
+6. **A public-bucket guard scan** runs with every cloud backup and raises an alert when it finds dumps, exports, archives or key files in public storage.
+7. **A "Send test alert" button** on the Backups page sends one test email and one test text to the admin (admin-permission only), so the alert path is proven before it is needed.
+8. **An off-site kill switch** (`OFFSITE_BACKUP=off`) stops the cloud job without a deploy, and having it on while backups are expected raises an alert so it cannot be left off by accident.
 
 ## Works with →
 - **data-exposure**: the public-write guard and smoke check that keep backups out of public
