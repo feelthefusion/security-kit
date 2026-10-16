@@ -144,8 +144,8 @@ and never prune because a run failed. Log every prune.
 - [ ] Heavy jobs run on a worker; local jobs use the OS scheduler with a lock
 - [ ] Kill switch env var works and defaults off when settings are missing
 - [ ] Every run reports to a token-protected endpoint; reporters require a JSON success body
-- [ ] Dashboard shows freshness per stream with thresholds; ANY problem alerts the admin by email AND text right away, one alert per problem, a 6-hour reminder, a recovery notice (section 8)
-- [ ] Public-bucket guard scan runs with each cloud backup; "Send test alert" button works; kill switch on raises an alert
+- [ ] Dashboard shows freshness per stream with thresholds; failed sections retry themselves first, the admin gets an email (never a text) only when drastically broken (section 8), one email per incident, a 24-hour reminder for urgent ones, a recovery notice only for incidents that emailed
+- [ ] Public-bucket guard scan runs with each cloud backup; "Send test alert" button works; kill switch left on for 24 h raises an alert
 - [ ] Restore guides written; a restore drill into a scratch DB passed with row counts compared, monthly, and quarterly from the off-site copy
 - [ ] `data-exposure` smoke check confirms no dump is reachable on any public URL
 
@@ -158,12 +158,15 @@ credentials ever go in this file or in a repo.
 2. **Three copies:** cloud database + settings + files hourly, a local-machine database copy hourly, and a file mirror every 15 minutes.
 3. **Retention:** 24 hourly, 30 daily, 12 monthly.
 4. **A deploy interruption resumes; it is not a failure.** A run cut short by a restart is marked interrupted, picked up again, and never alerts or counts as a failed run.
-5. **Any backup problem alerts the admin right away by email AND text.** Triggers: a failed run (any step, including upload and encryption), a failed local report, the public-bucket guard finding exposed files, the kill switch on while backups are expected, no good database copy for more than 75 minutes, the worker heartbeat missing for more than 15 minutes.
-   - Event-driven when a run or report finishes; the stale, kill-switch and heartbeat checks ride an existing scheduler tick (no new timers, no UI polling).
-   - One alert per distinct problem per incident, a reminder after 6 hours if still unfixed, and a short "Backups recovered" email and text when the last problem clears. Each alert is logged.
-   - A failing email or text sender never breaks a backup run, and one channel failing never blocks the other.
+5. **Self-heal first, email-only, alert only when drastically broken** (no good copy anywhere for 4h, persistent single-source failure for 8h, any public exposure, kill switch on 24h, worker missing 2h). Never a text.
+   - **Self-heal before anything is sent.** A failed cloud section (database, settings or files) is retried by the run itself 5 and then 15 minutes later (at most 2 retries, inside the same hour, same lease so a run never doubles). A database retry takes a fresh connection and waits out lock contention; `pg_dump` runs with `--lock-wait-timeout`; transient network/DNS and R2 5xx errors are retried; a worker restart is the existing interrupt-and-resume path. The Mac copy retries `pg_dump` with backoff and waits while the cloud job is dumping. Every retry is logged and the Backups page says "Recovered automatically after N retries".
+   - **Email only when drastic:** (a) neither the cloud nor the Mac has a good database copy for more than 4 hours (one source down while the other is fine is NOT drastic); (b) one source keeps failing after its retries for more than 8 hours while the other is fine (a low-urgency "heads up", one email per incident, never repeated); (c) the public-bucket guard finds exposed files (security, immediately); (d) the kill switch (`OFFSITE_BACKUP=off`) is still on 24 hours after it was first seen while backups are expected; (e) the worker heartbeat is missing for more than 2 hours.
+   - **Page only, no email:** a single failed run, a stale copy on one side, a file-copy hiccup, a failed local report, and any run that recovered after a retry.
+   - Event-driven when a run or report finishes; the time-based checks ride an existing scheduler tick (no new timers, no UI polling). Tests use an injected clock, never wall time.
+   - One email per incident (dedupe), a reminder only for the urgent ones and only after 24 hours, and a short "Backups recovered" email only for incidents that actually emailed. Each alert is logged.
+   - A failing email sender never breaks a backup run; failed sends are retried with backoff.
 6. **A public-bucket guard scan** runs with every cloud backup and raises an alert when it finds dumps, exports, archives or key files in public storage.
-7. **A "Send test alert" button** on the Backups page sends one test email and one test text to the admin (admin-permission only), so the alert path is proven before it is needed.
+7. **A "Send test alert" button** on the Backups page sends one test email (no text) to the admin (admin-permission only), so the alert path is proven before it is needed.
 8. **An off-site kill switch** (`OFFSITE_BACKUP=off`) stops the cloud job without a deploy, and having it on while backups are expected raises an alert so it cannot be left off by accident.
 
 ## Works with →
