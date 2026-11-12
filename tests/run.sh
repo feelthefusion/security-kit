@@ -104,7 +104,8 @@ grep -q "Disallow: /" templates/robots.txt && ok "robots.txt blocks all" || bad 
 grep -q "GPTBot" templates/crawler-blocklist.txt && ok "crawler blocklist has AI crawlers" || bad "crawler blocklist missing GPTBot"
 # no token anywhere: review runs locally (pre-push sec-review on the Claude Code sign-in)
 [ ! -f templates/github/security-review.yml ] && ok "no PR-review workflow template (retired)" || bad "retired security-review.yml template still shipped"
-! grep -rqE "gh secret set CLAUDE_CODE_OAUTH_TOKEN|claude setup-token|secrets\.CLAUDE_CODE_OAUTH_TOKEN" install bin templates README.md && ok "nothing asks for a CLAUDE_CODE_OAUTH_TOKEN" || bad "OAuth-token setup still referenced"
+# a local review token (sec-review --save-token) is optional and stays on the machine; no GitHub secret, ever
+! grep -rqE "gh secret set CLAUDE_CODE_OAUTH_TOKEN|secrets\.CLAUDE_CODE_OAUTH_TOKEN" install bin templates README.md && ok "nothing asks for a CLAUDE_CODE_OAUTH_TOKEN GitHub secret" || bad "GitHub OAuth-token secret still referenced"
 ! grep -qE "CLAUDE_API_KEY|anthropic_api_key|if: \\$\\{\\{ *secrets\." templates/github/*.yml && ok "no API key and no secrets-in-if anywhere in the templates" || bad "API key or secrets-in-if left in templates"
 ! grep -qE "uses: [^@]+@v[0-9]" templates/github/*.yml && ok "every template action is hash-pinned" || bad "unpinned action in templates"
 # one-command install: bootstrap must default to both hosts, no flag required
