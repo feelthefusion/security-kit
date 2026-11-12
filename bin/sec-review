@@ -7,6 +7,7 @@
 #   sec-review --pre-push R U   git pre-push hook mode (reads the pushed refs on stdin)
 #   sec-review --install-hook   add the pre-push hook to this repo (never clobbers one)
 #   sec-review --status         hook + Claude sign-in state for this repo
+#   sec-review --save-token     store a review token (paste the output of `claude setup-token`)
 #
 # The reviewer is Claude Code headless (`claude -p`) signed in with your Pro/Max plan:
 # no API key, no API billing. The instructions are Anthropic's own /security-review
@@ -15,6 +16,10 @@
 # tools. A HIGH finding blocks the push; everything else is printed.
 #   Skip once:  SEC_REVIEW=off git push      (or: git push --no-verify)
 # No claude / signed out / network error / timeout → skipped VISIBLY, never a stuck push.
+# Optional review token: a one-year `claude setup-token` token saved with --save-token makes the
+# reviewer use it instead of your Claude Code login, so reviews never renew that login (a login
+# renewed by many processes can end up revoked — fatal for a long-running Remote Control host).
+# One per account: ${CLAUDE_CONFIG_DIR:-~/.claude}/security-kit/oauth-token (SEC_REVIEW_TOKEN_FILE).
 # =============================================================================
 set -uo pipefail
 PROMPT_URL="https://raw.githubusercontent.com/anthropics/claude-code-security-review/main/.claude/commands/security-review.md"
@@ -22,11 +27,38 @@ CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/security-kit"
 CLAUDE_BIN="${SEC_REVIEW_CLAUDE:-claude}"
 TIMEOUT="${SEC_REVIEW_TIMEOUT:-900}"
 MAX_DIFF="${SEC_REVIEW_MAX_DIFF:-200000}"
+TOKEN_FILE="${SEC_REVIEW_TOKEN_FILE:-${CLAUDE_CONFIG_DIR:-$HOME/.claude}/security-kit/oauth-token}"
+TOKEN_USED=""
 ZERO="0000000000000000000000000000000000000000"
 MARK="# security-kit: sec-review pre-push hook"
 EXCLUDES=(":(exclude)package-lock.json" ":(exclude)**/package-lock.json" ":(exclude)*.lock" ":(exclude)**/*.lock" ":(exclude)**/meta/*_snapshot.json" ":(exclude)*.min.js")
 
 say() { printf '%s\n' "$*" >&2; }
+
+file_age_days() { local m; m="$(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null)" || return 1; echo $(( ($(date +%s) - m) / 86400 )); }
+
+use_token() {  # the review token, when one is saved and under a year old; an env token set by the caller wins
+    [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && { TOKEN_USED="CLAUDE_CODE_OAUTH_TOKEN"; return 0; }
+    [ -s "$TOKEN_FILE" ] || return 0
+    local age; age="$(file_age_days "$TOKEN_FILE")" || return 0
+    if [ "$age" -ge 364 ]; then
+        say "⚠ review token expired ($age days old) — reviewing on your Claude Code login instead. Renew: claude setup-token, then sec-review --save-token"
+        return 0
+    fi
+    [ "$age" -ge 330 ] && say "  note: review token expires in $((365 - age)) days — renew: claude setup-token, then sec-review --save-token"
+    CLAUDE_CODE_OAUTH_TOKEN="$(tr -d ' \r\n' < "$TOKEN_FILE")"; export CLAUDE_CODE_OAUTH_TOKEN
+    TOKEN_USED="review token ($age days old)"
+}
+
+save_token() {  # read a setup-token from stdin (hidden on a terminal) and store it mode 600; never echo it
+    local tok
+    if [ -t 0 ]; then printf 'Paste the token from `claude setup-token`: ' >&2; IFS= read -rs tok; echo >&2; else IFS= read -r tok; fi
+    tok="$(printf '%s' "$tok" | tr -d ' \r\n')"
+    case "$tok" in sk-ant-oat01-?*) ;; *) say "✗ that isn't a setup-token (expected sk-ant-oat01-…) — nothing saved"; return 1 ;; esac
+    mkdir -p "$(dirname "$TOKEN_FILE")" && chmod 700 "$(dirname "$TOKEN_FILE")"
+    ( umask 077; printf '%s\n' "$tok" > "$TOKEN_FILE.new" ) && mv "$TOKEN_FILE.new" "$TOKEN_FILE" && chmod 600 "$TOKEN_FILE"
+    say "✓ review token saved to $TOKEN_FILE (reviews no longer use your Claude Code login; renew yearly)"
+}
 
 claude_ready() {  # on PATH and signed in (Pro/Max login or any Claude Code auth)
     command -v "$CLAUDE_BIN" >/dev/null 2>&1 || return 1
@@ -150,17 +182,21 @@ EOF
 status() {
     local f; f="$(git rev-parse --git-path hooks)/pre-push"
     if [ -f "$f" ] && grep -q "$MARK" "$f"; then say "  · pre-push review hook ✓"; elif [ -f "$f" ]; then say "  ⚠ pre-push hook is someone else's (review not chained)"; else say "  ✗ no pre-push review hook — run: sec-review --install-hook"; fi
+    if [ -n "$TOKEN_USED" ]; then say "  · reviews run on the $TOKEN_USED, not your Claude Code login ✓"
+    else say "  · no review token — reviews use your Claude Code login (optional: claude setup-token, then sec-review --save-token)"; fi
     if claude_ready; then say "  · Claude Code signed in ✓ (reviews run on your plan)"; else say "  ✗ Claude Code not signed in — run: claude, then /login"; fi
 }
 
 case "${1:-}" in
-    -h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --save-token) save_token; exit $? ;;
 esac
+use_token
 git rev-parse --git-dir >/dev/null 2>&1 || { say "sec-review: not inside a git repo"; exit 2; }
 case "${1:-}" in
     --pre-push) shift; pre_push "$@" ;;
     --install-hook) install_hook ;;
     --status) status ;;
     "") manual ;;
-    *) say "usage: sec-review [--pre-push R U | --install-hook | --status]"; exit 2 ;;
+    *) say "usage: sec-review [--pre-push R U | --install-hook | --status | --save-token]"; exit 2 ;;
 esac
